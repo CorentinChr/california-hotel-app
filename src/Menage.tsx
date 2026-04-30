@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabase";
+import { useNavigate } from "react-router-dom";
 
 // --- TYPAGES ---
 interface TacheItem {
@@ -39,6 +40,7 @@ interface TacheRecurrente {
 }
 
 function Menage() {
+  const navigate = useNavigate();
   // --- ÉTATS ---
   const [ongletActif, setOngletActif] = useState<"QUOTIDIEN" | "RECURRENTES">(
     "QUOTIDIEN",
@@ -278,12 +280,29 @@ function Menage() {
           backgroundColor: "#2196f3",
           color: "white",
           padding: "16px",
-          textAlign: "center",
           borderRadius: "8px",
           marginBottom: "16px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
         }}
       >
-        <h1 style={{ margin: 0, fontSize: "20px" }}>Ménage – Le California</h1>
+        <h1 style={{ margin: 0, fontSize: "20px" }}>Ménage</h1>
+        <button
+          onClick={() => navigate("/admin")}
+          style={{
+            backgroundColor: "rgba(255,255,255,0.2)",
+            border: "none",
+            color: "white",
+            padding: "6px 12px",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontWeight: "bold",
+            fontSize: "14px",
+          }}
+        >
+          ⚙️ Admin
+        </button>
       </header>
 
       <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
+import { useNavigate } from "react-router-dom";
 
 // --- TYPAGES ---
 interface Reservation {
@@ -25,9 +26,14 @@ interface ConsoAgregee {
 }
 
 function Admin() {
-  // --- ÉTATS (MÉMOIRE) ---
+  const navigate = useNavigate();
+
+  // --- ÉTATS D'AUTHENTIFICATION ---
+  const [email, setEmail] = useState("");
   const [motDePasse, setMotDePasse] = useState("");
   const [estConnecte, setEstConnecte] = useState(false);
+
+  // --- ÉTATS DES DONNÉES ---
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [chargement, setChargement] = useState(false);
   const [reservationSelectionnee, setReservationSelectionnee] =
@@ -35,22 +41,30 @@ function Admin() {
   const [afficherAnciennes, setAfficherAnciennes] = useState(false);
   const [optionsDisponibles, setOptionsDisponibles] = useState<string[]>([]);
 
-  // NOUVEAU : États pour stocker les détails de la réservation sélectionnée
   const [tachesResa, setTachesResa] = useState<TacheInfo[]>([]);
   const [consosResa, setConsosResa] = useState<ConsoAgregee[]>([]);
   const [chargementDetails, setChargementDetails] = useState(false);
 
-  const motDePasseSecret = "california2026";
+  // --- GESTION DE LA SESSION SUPABASE ---
+  useEffect(() => {
+    // Vérifie s'il y a déjà une session active (cookie automatique)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setEstConnecte(true);
+      }
+    });
 
-  const verifierMotDePasse = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (motDePasse === motDePasseSecret) {
-      setEstConnecte(true);
-    } else {
-      alert("Mot de passe incorrect");
-    }
-  };
+    // Écoute les changements d'état (connexion/déconnexion/expiration)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setEstConnecte(!!session);
+    });
 
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // --- CHARGEMENT DES DONNÉES (Uniquement si connecté) ---
   useEffect(() => {
     if (estConnecte) {
       chargerReservations();
@@ -58,13 +72,37 @@ function Admin() {
     }
   }, [estConnecte, afficherAnciennes]);
 
-  // NOUVEAU : Se déclenche automatiquement quand tu ouvres une Fiche Détail
   useEffect(() => {
     if (reservationSelectionnee) {
       chargerDetailsReservation(reservationSelectionnee.id);
     }
-  }, [reservationSelectionnee?.id]); // On surveille juste l'ID pour ne pas recharger en boucle
+  }, [reservationSelectionnee?.id]);
 
+  // --- FONCTIONS AUTHENTIFICATION ---
+  const verifierMotDePasse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email,
+      password: motDePasse,
+    });
+
+    if (error) {
+      alert("Email ou mot de passe incorrect.");
+      console.error(error);
+    } else {
+      setEstConnecte(true);
+      setEmail("");
+      setMotDePasse(""); // On vide les champs par sécurité
+    }
+  };
+
+  const seDeconnecter = async () => {
+    await supabase.auth.signOut();
+    setEstConnecte(false);
+    setReservationSelectionnee(null);
+  };
+
+  // --- FONCTIONS DONNÉES ---
   const chargerOptions = async () => {
     const { data, error } = await supabase
       .from("checklist_options")
@@ -105,11 +143,9 @@ function Admin() {
     setChargement(false);
   };
 
-  // NOUVEAU : La fonction qui charge l'historique et additionne le minibar
   const chargerDetailsReservation = async (reservationId: string) => {
     setChargementDetails(true);
 
-    // 1. On récupère toutes les tâches du séjour
     const { data: tachesData } = await supabase
       .from("taches")
       .select("id, date_prevue, type_tache, statut")
@@ -118,10 +154,8 @@ function Admin() {
 
     if (tachesData) {
       setTachesResa(tachesData);
-
       const tacheIds = tachesData.map((t) => t.id);
 
-      // 2. On récupère les consos liées UNIQUEMENT à ces tâches
       if (tacheIds.length > 0) {
         const { data: consosData } = await supabase
           .from("minibar_consommations")
@@ -129,10 +163,7 @@ function Admin() {
           .in("tache_id", tacheIds);
 
         if (consosData) {
-          // On additionne les quantités par nom de produit (La calculatrice automatique !)
           const recapitulatif: Record<string, ConsoAgregee> = {};
-
-          // Note : on type en 'any' temporairement ici car Supabase renvoie un objet imbriqué complexe
           consosData.forEach((conso: any) => {
             const nomProduit = conso.minibar_produits?.nom || "Produit inconnu";
             if (!recapitulatif[nomProduit]) {
@@ -140,7 +171,6 @@ function Admin() {
             }
             recapitulatif[nomProduit].quantite += conso.quantite;
           });
-
           setConsosResa(Object.values(recapitulatif));
         } else {
           setConsosResa([]);
@@ -177,6 +207,7 @@ function Admin() {
       .eq("id", reservationMiseAJour.id);
   };
 
+  // --- RENDU : NON CONNECTÉ ---
   if (!estConnecte) {
     return (
       <div
@@ -188,11 +219,24 @@ function Admin() {
           fontFamily: "Arial, sans-serif",
         }}
       >
-        <h2>Accès Direction</h2>
+        <h2>Accès Direction SÉCURISÉ</h2>
         <form
           onSubmit={verifierMotDePasse}
           style={{ display: "flex", flexDirection: "column", gap: "12px" }}
         >
+          <input
+            type="email"
+            placeholder="Adresse email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={{
+              padding: "12px",
+              fontSize: "16px",
+              borderRadius: "6px",
+              border: "1px solid #ccc",
+            }}
+            required
+          />
           <input
             type="password"
             placeholder="Mot de passe"
@@ -204,6 +248,7 @@ function Admin() {
               borderRadius: "6px",
               border: "1px solid #ccc",
             }}
+            required
           />
           <button
             type="submit"
@@ -220,10 +265,26 @@ function Admin() {
             Se connecter
           </button>
         </form>
+        <button
+          onClick={() => navigate("/")}
+          style={{
+            marginTop: "20px",
+            padding: "10px",
+            backgroundColor: "transparent",
+            color: "#666",
+            border: "1px solid #ccc",
+            borderRadius: "6px",
+            cursor: "pointer",
+            width: "100%",
+          }}
+        >
+          ← Retour à la tablette
+        </button>
       </div>
     );
   }
 
+  // --- RENDU : CONNECTÉ ---
   return (
     <div
       style={{
@@ -250,19 +311,38 @@ function Admin() {
         <h1 style={{ margin: 0, fontSize: "20px" }}>
           Panel Admin - Le California
         </h1>
-        <button
-          onClick={() => setEstConnecte(false)}
-          style={{
-            backgroundColor: "transparent",
-            border: "1px solid white",
-            color: "white",
-            padding: "6px 12px",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
-          Déconnexion
-        </button>
+
+        <div style={{ display: "flex", gap: "12px" }}>
+          {/* NOUVEAU BOUTON RETOUR TABLETTE */}
+          <button
+            onClick={() => navigate("/")}
+            style={{
+              backgroundColor: "#555",
+              border: "none",
+              color: "white",
+              padding: "6px 12px",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontWeight: "bold",
+            }}
+          >
+            ← Tablette
+          </button>
+
+          <button
+            onClick={seDeconnecter}
+            style={{
+              backgroundColor: "transparent",
+              border: "1px solid white",
+              color: "white",
+              padding: "6px 12px",
+              borderRadius: "4px",
+              cursor: "pointer",
+            }}
+          >
+            Déconnexion
+          </button>
+        </div>
       </header>
 
       {chargement && reservations.length === 0 ? (
