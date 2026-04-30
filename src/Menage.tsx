@@ -59,6 +59,10 @@ function Menage() {
 
   const aujourdhui = new Date().toISOString().split("T")[0];
 
+  // --- COULEURS CHARTE GRAPHIQUE ---
+  const BLEU_CALIFORNIA = "#009CD8";
+  const ORANGE_CALIFORNIA = "#E95219";
+
   useEffect(() => {
     async function fetchData() {
       const pastDate = new Date();
@@ -236,7 +240,7 @@ function Menage() {
       return {
         texte: `En retard de ${Math.abs(joursRestants)}j`,
         couleur: "white",
-        bg: "#f44336",
+        bg: ORANGE_CALIFORNIA,
         estUrgent: true,
       };
     if (joursRestants <= 5)
@@ -265,58 +269,77 @@ function Menage() {
   );
 
   return (
+    // CONTENEUR PRINCIPAL ÉLARGI ET RESPONSIVE
     <div
       style={{
-        maxWidth: "480px",
+        width: "95%",
+        maxWidth: "900px",
         margin: "0 auto",
-        padding: "16px",
-        fontFamily: "Arial, sans-serif",
+        padding: "20px 0",
+        fontFamily: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
         backgroundColor: "#f5f5f5",
         minHeight: "100vh",
+        boxSizing: "border-box",
       }}
     >
+      {/* HEADER */}
       <header
         style={{
-          backgroundColor: "#2196f3",
+          backgroundColor: BLEU_CALIFORNIA,
           color: "white",
-          padding: "16px",
-          borderRadius: "8px",
-          marginBottom: "16px",
+          padding: "20px",
+          borderRadius: "12px",
+          marginBottom: "24px",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
+          boxShadow: "0 4px 12px rgba(0, 156, 216, 0.3)",
+          flexWrap: "wrap",
+          gap: "12px",
         }}
       >
-        <h1 style={{ margin: 0, fontSize: "20px" }}>Ménage</h1>
+        <h1 style={{ margin: 0, fontSize: "24px", fontWeight: "bold" }}>
+          🧹 Planning Ménage
+        </h1>
         <button
           onClick={() => navigate("/admin")}
           style={{
-            backgroundColor: "rgba(255,255,255,0.2)",
-            border: "none",
+            backgroundColor: "transparent",
+            border: "2px solid white",
             color: "white",
-            padding: "6px 12px",
-            borderRadius: "6px",
+            padding: "10px 16px",
+            borderRadius: "8px",
             cursor: "pointer",
             fontWeight: "bold",
-            fontSize: "14px",
+            fontSize: "16px",
           }}
         >
           ⚙️ Admin
         </button>
       </header>
 
-      <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
+      {/* BOUTONS D'ONGLETS */}
+      <div
+        style={{
+          display: "flex",
+          gap: "12px",
+          marginBottom: "24px",
+          flexWrap: "wrap",
+        }}
+      >
         <button
           onClick={() => setOngletActif("QUOTIDIEN")}
           style={{
-            flex: 1,
-            padding: "12px",
+            flex: "1 1 auto",
+            padding: "16px",
             border: "none",
             borderRadius: "8px",
             fontWeight: "bold",
+            fontSize: "16px",
             cursor: "pointer",
-            transition: "0.2s",
-            backgroundColor: ongletActif === "QUOTIDIEN" ? "#333" : "white",
+            transition: "all 0.2s ease",
+            backgroundColor:
+              ongletActif === "QUOTIDIEN" ? BLEU_CALIFORNIA : "white",
             color: ongletActif === "QUOTIDIEN" ? "white" : "#666",
             boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
           }}
@@ -326,14 +349,16 @@ function Menage() {
         <button
           onClick={() => setOngletActif("RECURRENTES")}
           style={{
-            flex: 1,
-            padding: "12px",
+            flex: "1 1 auto",
+            padding: "16px",
             border: "none",
             borderRadius: "8px",
             fontWeight: "bold",
+            fontSize: "16px",
             cursor: "pointer",
-            transition: "0.2s",
-            backgroundColor: ongletActif === "RECURRENTES" ? "#333" : "white",
+            transition: "all 0.2s ease",
+            backgroundColor:
+              ongletActif === "RECURRENTES" ? BLEU_CALIFORNIA : "white",
             color: ongletActif === "RECURRENTES" ? "white" : "#666",
             boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
           }}
@@ -343,310 +368,391 @@ function Menage() {
       </div>
 
       {chargement ? (
-        <p>Chargement des données...</p>
+        <div
+          style={{
+            textAlign: "center",
+            padding: "40px",
+            color: "#666",
+            fontSize: "18px",
+          }}
+        >
+          Chargement des données...
+        </div>
       ) : ongletActif === "QUOTIDIEN" ? (
         /* ONGLET 1 : TÂCHES QUOTIDIENNES */
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           {taches.length === 0 ? (
-            <p style={{ color: "#666", fontStyle: "italic" }}>
-              Aucune tâche de réservation en attente.
-            </p>
+            <div
+              style={{
+                textAlign: "center",
+                padding: "40px",
+                backgroundColor: "white",
+                borderRadius: "12px",
+                border: "2px dashed #ccc",
+              }}
+            >
+              <h2 style={{ color: BLEU_CALIFORNIA, margin: 0 }}>
+                Aucune tâche en attente ! 🎉
+              </h2>
+            </div>
           ) : (
-            taches.map((tache) => (
-              <div
-                key={tache.id}
-                style={{
-                  backgroundColor: "white",
-                  padding: "16px",
-                  borderRadius: "12px",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                  borderLeft:
-                    tache.date_prevue !== aujourdhui &&
-                    tache.statut === "A FAIRE"
-                      ? "4px solid #f44336"
-                      : "none",
-                }}
-              >
+            taches.map((tache) => {
+              const estTermine = tache.statut === "TERMINÉ";
+
+              return (
                 <div
+                  key={tache.id}
                   style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginBottom: "8px",
-                    alignItems: "flex-start",
+                    backgroundColor: "white",
+                    padding: "20px",
+                    borderRadius: "12px",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                    borderLeft: `6px solid ${estTermine ? BLEU_CALIFORNIA : ORANGE_CALIFORNIA}`,
+                    transition: "all 0.2s ease",
+                    opacity: estTermine ? 0.8 : 1,
                   }}
                 >
-                  <div>
-                    <strong
-                      style={{
-                        fontSize: "16px",
-                        display: "block",
-                        marginBottom: "4px",
-                      }}
-                    >
-                      {tache.chambres?.nom} – {tache.type_tache}
-                    </strong>
-                    {tache.date_prevue !== aujourdhui && (
-                      <span
-                        style={{
-                          fontSize: "12px",
-                          color: "#f44336",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        ⚠️ Prévu le : {tache.date_prevue}
-                      </span>
-                    )}
-                  </div>
                   <div
                     style={{
                       display: "flex",
-                      flexDirection: "column",
-                      alignItems: "flex-end",
-                      gap: "8px",
+                      justifyContent: "space-between",
+                      marginBottom: "12px",
+                      alignItems: "flex-start",
+                      flexWrap: "wrap",
+                      gap: "12px",
                     }}
                   >
-                    <span
+                    <div style={{ flex: "1 1 200px" }}>
+                      <strong
+                        style={{
+                          fontSize: "18px",
+                          display: "block",
+                          marginBottom: "6px",
+                          color: "#333",
+                        }}
+                      >
+                        {tache.chambres?.nom} – {tache.type_tache}
+                      </strong>
+                      {tache.date_prevue !== aujourdhui && !estTermine && (
+                        <span
+                          style={{
+                            fontSize: "13px",
+                            color: ORANGE_CALIFORNIA,
+                            fontWeight: "bold",
+                            display: "block",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          ⚠️ Prévu le : {tache.date_prevue}
+                        </span>
+                      )}
+                      <div style={{ fontSize: "15px", color: "#666" }}>
+                        Client :{" "}
+                        <strong>
+                          {tache.reservations?.nom_client || "Non renseigné"}
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div
                       style={{
-                        backgroundColor:
-                          tache.statut === "A FAIRE" ? "#f44336" : "#4caf50",
-                        color: "white",
-                        padding: "4px 8px",
-                        borderRadius: "12px",
-                        fontSize: "12px",
-                        fontWeight: "bold",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "flex-end",
+                        gap: "12px",
+                        flex: "1 1 auto",
                       }}
                     >
-                      {tache.statut}
-                    </span>
-                    {tache.statut === "A FAIRE" && (
-                      <button
-                        onClick={() => marquerCommeTerminee(tache.id)}
+                      <span
                         style={{
-                          padding: "6px 10px",
-                          backgroundColor: "#4caf50",
-                          color: "white",
-                          border: "none",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                          fontSize: "12px",
+                          backgroundColor: estTermine ? "#e1f5fe" : "#fbe9e7",
+                          color: estTermine
+                            ? BLEU_CALIFORNIA
+                            : ORANGE_CALIFORNIA,
+                          padding: "6px 12px",
+                          borderRadius: "20px",
+                          fontSize: "14px",
                           fontWeight: "bold",
                         }}
                       >
-                        ✓ Terminer
-                      </button>
-                    )}
+                        {tache.statut}
+                      </span>
+                      {!estTermine && (
+                        <button
+                          onClick={() => marquerCommeTerminee(tache.id)}
+                          style={{
+                            padding: "10px 16px",
+                            backgroundColor: BLEU_CALIFORNIA,
+                            color: "white",
+                            border: "none",
+                            borderRadius: "8px",
+                            cursor: "pointer",
+                            fontSize: "14px",
+                            fontWeight: "bold",
+                            width: "100%",
+                            textAlign: "center",
+                          }}
+                        >
+                          ✓ Valider la tâche
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <div
-                  style={{
-                    fontSize: "14px",
-                    color: "#666",
-                    marginBottom: "12px",
-                  }}
-                >
-                  Client : {tache.reservations?.nom_client || "Non renseigné"}
-                </div>
-                <button
-                  onClick={() =>
-                    setTacheDepliee(tacheDepliee === tache.id ? null : tache.id)
-                  }
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    backgroundColor:
-                      tacheDepliee === tache.id ? "#e0e0e0" : "#2196f3",
-                    color: tacheDepliee === tache.id ? "#333" : "white",
-                    border: "none",
-                    borderRadius: "99px",
-                    cursor: "pointer",
-                    fontWeight: "bold",
-                  }}
-                >
-                  {tacheDepliee === tache.id
-                    ? "▲ Fermer la Check-list"
-                    : "▼ Ouvrir la Check-list"}
-                </button>
 
-                {tacheDepliee === tache.id && (
-                  <div
+                  {/* BOUTON DÉPLIER CHECKLIST */}
+                  <button
+                    onClick={() =>
+                      setTacheDepliee(
+                        tacheDepliee === tache.id ? null : tache.id,
+                      )
+                    }
                     style={{
-                      marginTop: "16px",
-                      paddingTop: "16px",
-                      borderTop: "1px solid #eee",
+                      width: "100%",
+                      padding: "14px",
+                      marginTop: "8px",
+                      backgroundColor:
+                        tacheDepliee === tache.id ? "#e0e0e0" : "#f5f5f5",
+                      color: "#333",
+                      border:
+                        tacheDepliee === tache.id ? "none" : "1px solid #ddd",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      fontWeight: "bold",
+                      fontSize: "15px",
+                      transition: "all 0.2s ease",
                     }}
                   >
-                    <h4
+                    {tacheDepliee === tache.id
+                      ? "▲ Fermer les détails"
+                      : "▼ Check-list & Minibar"}
+                  </button>
+
+                  {/* CONTENU CHECKLIST ET MINIBAR */}
+                  {tacheDepliee === tache.id && (
+                    <div
                       style={{
-                        margin: "0 0 12px 0",
-                        fontSize: "14px",
-                        color: "#333",
+                        marginTop: "20px",
+                        paddingTop: "20px",
+                        borderTop: "2px solid #eee",
                       }}
                     >
-                      À vérifier absolument :
-                    </h4>
-                    {tache.tache_items_execution
-                      .sort((a, b) => a.ordre - b.ordre)
-                      .map((item) => (
-                        <label
-                          key={item.id}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            padding: "8px 0",
-                            cursor: "pointer",
-                            opacity: item.est_fait ? 0.5 : 1,
-                            textDecoration: item.est_fait
-                              ? "line-through"
-                              : "none",
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={item.est_fait}
-                            onChange={() =>
-                              toggleItem(tache.id, item.id, item.est_fait)
-                            }
-                            style={{
-                              marginRight: "12px",
-                              width: "18px",
-                              height: "18px",
-                              cursor: "pointer",
-                            }}
-                          />
-                          <span style={{ fontSize: "14px", color: "#444" }}>
-                            {item.libelle}
-                          </span>
-                        </label>
-                      ))}
-                    {(tache.type_tache === "Départ" ||
-                      tache.type_tache === "Intermédiaire") && (
-                      <div
+                      <h4
                         style={{
-                          marginTop: "24px",
-                          paddingTop: "16px",
-                          borderTop: "1px dashed #ccc",
+                          margin: "0 0 16px 0",
+                          fontSize: "16px",
+                          color: BLEU_CALIFORNIA,
                         }}
                       >
-                        <h4
-                          style={{
-                            margin: "0 0 12px 0",
-                            fontSize: "14px",
-                            color: "#333",
-                          }}
-                        >
-                          🥤 Consommations Minibar :
-                        </h4>
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "8px",
-                          }}
-                        >
-                          {produits.map((produit) => {
-                            const conso = tache.minibar_consommations.find(
-                              (c) => c.produit_id === produit.id,
-                            );
-                            const quantite = conso ? conso.quantite : 0;
-                            return (
-                              <div
-                                key={produit.id}
+                        📝 Check-list à vérifier :
+                      </h4>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "8px",
+                        }}
+                      >
+                        {tache.tache_items_execution.length === 0 ? (
+                          <p
+                            style={{
+                              margin: 0,
+                              color: "#888",
+                              fontStyle: "italic",
+                            }}
+                          >
+                            Aucune sous-tâche.
+                          </p>
+                        ) : (
+                          tache.tache_items_execution
+                            .sort((a, b) => a.ordre - b.ordre)
+                            .map((item) => (
+                              <label
+                                key={item.id}
                                 style={{
                                   display: "flex",
-                                  justifyContent: "space-between",
                                   alignItems: "center",
-                                  backgroundColor: "#f9f9f9",
-                                  padding: "8px 12px",
+                                  padding: "10px 14px",
+                                  backgroundColor: item.est_fait
+                                    ? "#f9f9f9"
+                                    : "white",
+                                  border: "1px solid #eee",
                                   borderRadius: "8px",
+                                  cursor: "pointer",
+                                  opacity: item.est_fait ? 0.6 : 1,
+                                  textDecoration: item.est_fait
+                                    ? "line-through"
+                                    : "none",
                                 }}
                               >
+                                <input
+                                  type="checkbox"
+                                  checked={item.est_fait}
+                                  onChange={() =>
+                                    toggleItem(tache.id, item.id, item.est_fait)
+                                  }
+                                  style={{
+                                    marginRight: "16px",
+                                    width: "20px",
+                                    height: "20px",
+                                    cursor: "pointer",
+                                  }}
+                                />
                                 <span
-                                  style={{ fontSize: "14px", color: "#555" }}
+                                  style={{ fontSize: "16px", color: "#444" }}
                                 >
-                                  {produit.nom}
+                                  {item.libelle}
                                 </span>
+                              </label>
+                            ))
+                        )}
+                      </div>
+
+                      {(tache.type_tache === "Départ" ||
+                        tache.type_tache === "Intermédiaire") && (
+                        <div
+                          style={{
+                            marginTop: "30px",
+                            paddingTop: "20px",
+                            borderTop: "2px dashed #ccc",
+                          }}
+                        >
+                          <h4
+                            style={{
+                              margin: "0 0 16px 0",
+                              fontSize: "16px",
+                              color: BLEU_CALIFORNIA,
+                            }}
+                          >
+                            🥤 Consommations Minibar :
+                          </h4>
+                          <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns:
+                                "repeat(auto-fill, minmax(250px, 1fr))",
+                              gap: "12px",
+                            }}
+                          >
+                            {produits.map((produit) => {
+                              const conso = tache.minibar_consommations.find(
+                                (c) => c.produit_id === produit.id,
+                              );
+                              const quantite = conso ? conso.quantite : 0;
+                              return (
                                 <div
+                                  key={produit.id}
                                   style={{
                                     display: "flex",
+                                    justifyContent: "space-between",
                                     alignItems: "center",
-                                    gap: "12px",
+                                    backgroundColor: "#f9f9f9",
+                                    padding: "12px 16px",
+                                    borderRadius: "8px",
+                                    border: "1px solid #eee",
                                   }}
                                 >
-                                  <button
-                                    onClick={() =>
-                                      modifierConso(tache.id, produit.id, -1)
-                                    }
-                                    disabled={quantite === 0}
-                                    style={{
-                                      width: "28px",
-                                      height: "28px",
-                                      borderRadius: "50%",
-                                      border: "1px solid #ccc",
-                                      backgroundColor:
-                                        quantite === 0 ? "#eee" : "white",
-                                      color: quantite === 0 ? "#aaa" : "#333",
-                                      cursor:
-                                        quantite === 0
-                                          ? "not-allowed"
-                                          : "pointer",
-                                      fontWeight: "bold",
-                                    }}
-                                  >
-                                    -
-                                  </button>
                                   <span
                                     style={{
-                                      width: "20px",
-                                      textAlign: "center",
+                                      fontSize: "15px",
+                                      color: "#444",
                                       fontWeight: "bold",
-                                      fontSize: "14px",
                                     }}
                                   >
-                                    {quantite}
+                                    {produit.nom}
                                   </span>
-                                  <button
-                                    onClick={() =>
-                                      modifierConso(tache.id, produit.id, 1)
-                                    }
+                                  <div
                                     style={{
-                                      width: "28px",
-                                      height: "28px",
-                                      borderRadius: "50%",
-                                      border: "none",
-                                      backgroundColor: "#2196f3",
-                                      color: "white",
-                                      cursor: "pointer",
-                                      fontWeight: "bold",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "16px",
                                     }}
                                   >
-                                    +
-                                  </button>
+                                    <button
+                                      onClick={() =>
+                                        modifierConso(tache.id, produit.id, -1)
+                                      }
+                                      disabled={quantite === 0}
+                                      style={{
+                                        width: "36px",
+                                        height: "36px",
+                                        borderRadius: "50%",
+                                        border: "1px solid #ccc",
+                                        backgroundColor:
+                                          quantite === 0 ? "#eee" : "white",
+                                        color: quantite === 0 ? "#aaa" : "#333",
+                                        cursor:
+                                          quantite === 0
+                                            ? "not-allowed"
+                                            : "pointer",
+                                        fontWeight: "bold",
+                                        fontSize: "18px",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                      }}
+                                    >
+                                      -
+                                    </button>
+                                    <span
+                                      style={{
+                                        width: "24px",
+                                        textAlign: "center",
+                                        fontWeight: "bold",
+                                        fontSize: "16px",
+                                        color: BLEU_CALIFORNIA,
+                                      }}
+                                    >
+                                      {quantite}
+                                    </span>
+                                    <button
+                                      onClick={() =>
+                                        modifierConso(tache.id, produit.id, 1)
+                                      }
+                                      style={{
+                                        width: "36px",
+                                        height: "36px",
+                                        borderRadius: "50%",
+                                        border: "none",
+                                        backgroundColor: BLEU_CALIFORNIA,
+                                        color: "white",
+                                        cursor: "pointer",
+                                        fontWeight: "bold",
+                                        fontSize: "18px",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                      }}
+                                    >
+                                      +
+                                    </button>
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       ) : (
         /* ONGLET 2 : TÂCHES RÉCURRENTES (ACCORDÉON) */
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           <p
             style={{
               margin: 0,
-              fontSize: "14px",
+              fontSize: "15px",
               color: "#666",
               textAlign: "center",
-              marginBottom: "8px",
+              marginBottom: "12px",
             }}
           >
-            Cliquez sur une chambre pour voir les tâches d'entretien.
+            Cliquez sur une chambre pour voir les tâches d'entretien profond.
           </p>
 
           {Object.entries(recurrentesParChambre).map(
@@ -667,7 +773,7 @@ function Menage() {
                     backgroundColor: "white",
                     borderRadius: "12px",
                     overflow: "hidden",
-                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
                   }}
                 >
                   {/* En-tête CLICQUABLE */}
@@ -676,35 +782,38 @@ function Menage() {
                       setChambreDepliee(estDepliee ? null : nomChambre)
                     }
                     style={{
-                      backgroundColor: estDepliee ? "#e3f2fd" : "white",
-                      padding: "16px",
+                      backgroundColor: estDepliee ? "#e1f5fe" : "white",
+                      padding: "20px",
                       cursor: "pointer",
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
-                      borderBottom: estDepliee ? "1px solid #bbdefb" : "none",
+                      borderBottom: estDepliee ? "2px solid #b3e5fc" : "none",
                       transition: "background-color 0.2s",
+                      flexWrap: "wrap",
+                      gap: "12px",
                     }}
                   >
                     <h3
                       style={{
                         margin: 0,
-                        color: "#1976d2",
-                        fontSize: "16px",
+                        color: BLEU_CALIFORNIA,
+                        fontSize: "18px",
                         display: "flex",
                         alignItems: "center",
-                        gap: "10px",
+                        gap: "12px",
                       }}
                     >
                       🛏️ {nomChambre}
                       {nbUrgentes > 0 && (
                         <span
                           style={{
-                            backgroundColor: "#f44336",
+                            backgroundColor: ORANGE_CALIFORNIA,
                             color: "white",
-                            fontSize: "11px",
-                            padding: "3px 8px",
+                            fontSize: "12px",
+                            padding: "4px 10px",
                             borderRadius: "12px",
+                            fontWeight: "bold",
                           }}
                         >
                           {nbUrgentes} prioritaire{nbUrgentes > 1 ? "s" : ""}
@@ -713,9 +822,9 @@ function Menage() {
                     </h3>
                     <span
                       style={{
-                        color: "#1976d2",
+                        color: BLEU_CALIFORNIA,
                         fontWeight: "bold",
-                        fontSize: "12px",
+                        fontSize: "14px",
                       }}
                     >
                       {estDepliee ? "▲ FERMER" : "▼ OUVRIR"}
@@ -754,32 +863,36 @@ function Menage() {
                                 display: "flex",
                                 justifyContent: "space-between",
                                 alignItems: "center",
-                                padding: "16px",
+                                padding: "20px",
                                 borderBottom:
                                   index < tachesChambre.length - 1
                                     ? "1px solid #eee"
                                     : "none",
+                                flexWrap: "wrap",
+                                gap: "16px",
                               }}
                             >
-                              <div style={{ flex: 1, paddingRight: "16px" }}>
+                              <div style={{ flex: "1 1 200px" }}>
                                 <span
                                   style={{
-                                    fontSize: "14px",
+                                    fontSize: "16px",
                                     color: "#333",
                                     display: "block",
-                                    marginBottom: "6px",
+                                    marginBottom: "8px",
+                                    fontWeight: "bold",
                                   }}
                                 >
                                   {tache.libelle}
                                 </span>
                                 <span
                                   style={{
-                                    fontSize: "11px",
+                                    fontSize: "13px",
                                     fontWeight: "bold",
-                                    padding: "4px 8px",
-                                    borderRadius: "12px",
+                                    padding: "6px 12px",
+                                    borderRadius: "16px",
                                     backgroundColor: statut.bg,
                                     color: statut.couleur,
+                                    display: "inline-block",
                                   }}
                                 >
                                   {statut.texte}
@@ -789,36 +902,50 @@ function Menage() {
                               <button
                                 onClick={() => validerTacheRecurrente(tache.id)}
                                 style={{
-                                  padding: "8px 12px",
-                                  backgroundColor: "#f5f5f5",
-                                  color: "#333",
-                                  border: "1px solid #ccc",
-                                  borderRadius: "6px",
+                                  padding: "12px 20px",
+                                  backgroundColor: "white",
+                                  color: BLEU_CALIFORNIA,
+                                  border: `2px solid ${BLEU_CALIFORNIA}`,
+                                  borderRadius: "8px",
                                   cursor: "pointer",
-                                  fontSize: "12px",
+                                  fontSize: "14px",
                                   fontWeight: "bold",
                                   whiteSpace: "nowrap",
+                                  flex: "1 1 auto",
+                                  textAlign: "center",
+                                  transition: "all 0.2s",
+                                }}
+                                onMouseOver={(e) => {
+                                  e.currentTarget.style.backgroundColor =
+                                    BLEU_CALIFORNIA;
+                                  e.currentTarget.style.color = "white";
+                                }}
+                                onMouseOut={(e) => {
+                                  e.currentTarget.style.backgroundColor =
+                                    "white";
+                                  e.currentTarget.style.color = BLEU_CALIFORNIA;
                                 }}
                               >
-                                ✔ Fait
+                                ✔ Marquer fait
                               </button>
                             </div>
                           );
                         })}
 
-                      {/* NOUVEAU : BOUTON FERMER EN BAS DE CARTE */}
+                      {/* BOUTON FERMER EN BAS DE CARTE */}
                       <button
                         onClick={() => setChambreDepliee(null)}
                         style={{
-                          padding: "12px",
+                          padding: "16px",
                           backgroundColor: "#f5f5f5",
-                          color: "#1976d2",
+                          color: BLEU_CALIFORNIA,
                           border: "none",
                           borderTop: "1px solid #eee",
                           cursor: "pointer",
                           fontWeight: "bold",
-                          fontSize: "13px",
+                          fontSize: "14px",
                           textAlign: "center",
+                          width: "100%",
                         }}
                       >
                         ▲ FERMER LA LISTE
