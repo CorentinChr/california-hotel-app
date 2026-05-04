@@ -363,7 +363,7 @@ function Menage() {
             boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
           }}
         >
-          ✨ Entretien Profond
+          ✨ Tâches récurrentes
         </button>
       </div>
 
@@ -733,6 +733,26 @@ function Menage() {
                           </div>
                         </div>
                       )}
+
+                      {/* --- NOUVEAU BOUTON FERMER EN BAS DE DÉTAIL --- */}
+                      <button
+                        onClick={() => setTacheDepliee(null)}
+                        style={{
+                          width: "100%",
+                          padding: "14px",
+                          marginTop: "24px",
+                          backgroundColor: "#e0e0e0",
+                          color: "#333",
+                          border: "none",
+                          borderRadius: "8px",
+                          cursor: "pointer",
+                          fontWeight: "bold",
+                          fontSize: "15px",
+                          transition: "all 0.2s ease",
+                        }}
+                      >
+                        ▲ Fermer les détails
+                      </button>
                     </div>
                   )}
                 </div>
@@ -752,7 +772,7 @@ function Menage() {
               marginBottom: "12px",
             }}
           >
-            Cliquez sur une chambre pour voir les tâches d'entretien profond.
+            Cliquez sur une chambre pour voir les tâches récurrentes associées
           </p>
 
           {Object.entries(recurrentesParChambre).map(

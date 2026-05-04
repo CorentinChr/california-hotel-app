@@ -25,8 +25,27 @@ interface ConsoAgregee {
   quantite: number;
 }
 
+const MOIS_NOMS = [
+  "Janvier",
+  "Février",
+  "Mars",
+  "Avril",
+  "Mai",
+  "Juin",
+  "Juillet",
+  "Août",
+  "Septembre",
+  "Octobre",
+  "Novembre",
+  "Décembre",
+];
+
 function Admin() {
   const navigate = useNavigate();
+
+  // --- COULEURS CHARTE GRAPHIQUE ---
+  const BLEU_CALIFORNIA = "#009CD8";
+  const ORANGE_CALIFORNIA = "#E95219";
 
   // --- ÉTATS D'AUTHENTIFICATION ---
   const [email, setEmail] = useState("");
@@ -38,7 +57,10 @@ function Admin() {
   const [chargement, setChargement] = useState(false);
   const [reservationSelectionnee, setReservationSelectionnee] =
     useState<Reservation | null>(null);
-  const [afficherAnciennes, setAfficherAnciennes] = useState(false);
+
+  const [moisActuel, setMoisActuel] = useState(new Date().getMonth());
+  const [anneeActuelle, setAnneeActuelle] = useState(new Date().getFullYear());
+
   const [optionsDisponibles, setOptionsDisponibles] = useState<string[]>([]);
 
   const [tachesResa, setTachesResa] = useState<TacheInfo[]>([]);
@@ -47,14 +69,10 @@ function Admin() {
 
   // --- GESTION DE LA SESSION SUPABASE ---
   useEffect(() => {
-    // Vérifie s'il y a déjà une session active (cookie automatique)
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setEstConnecte(true);
-      }
+      if (session) setEstConnecte(true);
     });
 
-    // Écoute les changements d'état (connexion/déconnexion/expiration)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -64,13 +82,13 @@ function Admin() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // --- CHARGEMENT DES DONNÉES (Uniquement si connecté) ---
+  // --- CHARGEMENT DES DONNÉES ---
   useEffect(() => {
     if (estConnecte) {
       chargerReservations();
       chargerOptions();
     }
-  }, [estConnecte, afficherAnciennes]);
+  }, [estConnecte, moisActuel, anneeActuelle]);
 
   useEffect(() => {
     if (reservationSelectionnee) {
@@ -82,17 +100,15 @@ function Admin() {
   const verifierMotDePasse = async (e: React.FormEvent) => {
     e.preventDefault();
     const { error } = await supabase.auth.signInWithPassword({
-      email: email,
+      email,
       password: motDePasse,
     });
-
     if (error) {
       alert("Email ou mot de passe incorrect.");
-      console.error(error);
     } else {
       setEstConnecte(true);
       setEmail("");
-      setMotDePasse(""); // On vide les champs par sécurité
+      setMotDePasse("");
     }
   };
 
@@ -100,6 +116,68 @@ function Admin() {
     await supabase.auth.signOut();
     setEstConnecte(false);
     setReservationSelectionnee(null);
+  };
+
+  // --- FONCTIONS NAVIGATION MOIS ---
+  const moisPrecedent = () => {
+    if (moisActuel === 0) {
+      setMoisActuel(11);
+      setAnneeActuelle(anneeActuelle - 1);
+    } else {
+      setMoisActuel(moisActuel - 1);
+    }
+  };
+
+  const moisSuivant = () => {
+    if (moisActuel === 11) {
+      setMoisActuel(0);
+      setAnneeActuelle(anneeActuelle + 1);
+    } else {
+      setMoisActuel(moisActuel + 1);
+    }
+  };
+
+  const formaterDate = (dateString: string) => {
+    const [annee, mois, jour] = dateString.split("-");
+    return `${jour}/${mois}/${annee}`;
+  };
+
+  // --- NOUVEAU : FONCTION POUR LES BADGES DE STATUT ---
+  const getBadgeStatut = (statut: string) => {
+    let bgColor = "#e0e0e0";
+    let color = "#333";
+    let label = statut;
+
+    if (statut === "Booked") {
+      bgColor = "#e8f5e9"; // Vert très clair
+      color = "#4caf50"; // Vert foncé
+      label = "Confirmée";
+    } else if (statut === "Declined" || statut === "Cancelled") {
+      bgColor = "#ffebee"; // Rouge très clair
+      color = "#f44336"; // Rouge foncé
+      label = "Refusée / Annulée";
+    } else if (statut === "Open") {
+      bgColor = "#fff3e0"; // Orange très clair
+      color = "#ff9800"; // Orange foncé
+      label = "En attente";
+    }
+
+    return (
+      <span
+        style={{
+          backgroundColor: bgColor,
+          color: color,
+          padding: "4px 10px",
+          borderRadius: "12px",
+          fontSize: "12px",
+          fontWeight: "bold",
+          border: `1px solid ${color}`,
+          whiteSpace: "nowrap",
+        }}
+      >
+        {label}
+      </span>
+    );
   };
 
   // --- FONCTIONS DONNÉES ---
@@ -118,21 +196,26 @@ function Admin() {
 
   const chargerReservations = async () => {
     setChargement(true);
-    const aujourdhui = new Date().toISOString().split("T")[0];
 
-    let requete = supabase
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    const premierJour = `${anneeActuelle}-${pad(moisActuel + 1)}-01`;
+    const nbJoursDansMois = new Date(
+      anneeActuelle,
+      moisActuel + 1,
+      0,
+    ).getDate();
+    const dernierJour = `${anneeActuelle}-${pad(moisActuel + 1)}-${pad(nbJoursDansMois)}`;
+
+    const { data, error } = await supabase
       .from("reservations")
       .select(
         `id, nom_client, date_arrivee, date_depart, statut, options_json, chambres ( nom )`,
       )
-      .order("date_arrivee", { ascending: !afficherAnciennes });
+      .lte("date_arrivee", dernierJour)
+      .gte("date_depart", premierJour)
+      .order("date_arrivee", { ascending: true });
 
-    if (!afficherAnciennes) requete = requete.gte("date_depart", aujourdhui);
-
-    const { data, error } = await requete;
-    if (error) {
-      console.error("Erreur chargement résas:", error);
-    } else if (data) {
+    if (!error && data) {
       setReservations(data as unknown as Reservation[]);
       if (reservationSelectionnee) {
         const resaAJour = data.find((r) => r.id === reservationSelectionnee.id);
@@ -145,7 +228,6 @@ function Admin() {
 
   const chargerDetailsReservation = async (reservationId: string) => {
     setChargementDetails(true);
-
     const { data: tachesData } = await supabase
       .from("taches")
       .select("id, date_prevue, type_tache, statut")
@@ -161,14 +243,12 @@ function Admin() {
           .from("minibar_consommations")
           .select("quantite, minibar_produits(nom)")
           .in("tache_id", tacheIds);
-
         if (consosData) {
           const recapitulatif: Record<string, ConsoAgregee> = {};
           consosData.forEach((conso: any) => {
             const nomProduit = conso.minibar_produits?.nom || "Produit inconnu";
-            if (!recapitulatif[nomProduit]) {
+            if (!recapitulatif[nomProduit])
               recapitulatif[nomProduit] = { nom: nomProduit, quantite: 0 };
-            }
             recapitulatif[nomProduit].quantite += conso.quantite;
           });
           setConsosResa(Object.values(recapitulatif));
@@ -200,7 +280,6 @@ function Admin() {
         r.id === reservationMiseAJour.id ? reservationMiseAJour : r,
       ),
     );
-
     await supabase
       .from("reservations")
       .update({ options_json: nouvellesOptions })
@@ -288,7 +367,7 @@ function Admin() {
   return (
     <div
       style={{
-        maxWidth: "800px",
+        maxWidth: "900px",
         margin: "0 auto",
         padding: "20px",
         fontFamily: "Arial, sans-serif",
@@ -296,47 +375,45 @@ function Admin() {
         minHeight: "100vh",
       }}
     >
+      {/* HEADER */}
       <header
         style={{
           backgroundColor: "#333",
           color: "white",
-          padding: "16px",
-          borderRadius: "8px",
+          padding: "16px 24px",
+          borderRadius: "12px",
           marginBottom: "20px",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
+          flexWrap: "wrap",
+          gap: "12px",
         }}
       >
-        <h1 style={{ margin: 0, fontSize: "20px" }}>
-          Panel Admin - Le California
-        </h1>
-
+        <h1 style={{ margin: 0, fontSize: "22px" }}>⚙️ Panel Admin</h1>
         <div style={{ display: "flex", gap: "12px" }}>
-          {/* NOUVEAU BOUTON RETOUR TABLETTE */}
           <button
             onClick={() => navigate("/")}
             style={{
-              backgroundColor: "#555",
+              backgroundColor: BLEU_CALIFORNIA,
               border: "none",
               color: "white",
-              padding: "6px 12px",
-              borderRadius: "4px",
+              padding: "8px 16px",
+              borderRadius: "6px",
               cursor: "pointer",
               fontWeight: "bold",
             }}
           >
-            ← Tablette
+            🧹 Tablette
           </button>
-
           <button
             onClick={seDeconnecter}
             style={{
               backgroundColor: "transparent",
               border: "1px solid white",
               color: "white",
-              padding: "6px 12px",
-              borderRadius: "4px",
+              padding: "8px 16px",
+              borderRadius: "6px",
               cursor: "pointer",
             }}
           >
@@ -345,9 +422,20 @@ function Admin() {
         </div>
       </header>
 
+      {/* GESTION DE LA VUE : DÉTAILS OU LISTE */}
       {chargement && reservations.length === 0 ? (
-        <p>Chargement des réservations...</p>
+        <div
+          style={{
+            textAlign: "center",
+            padding: "40px",
+            color: "#666",
+            fontSize: "18px",
+          }}
+        >
+          Chargement des données...
+        </div>
       ) : reservationSelectionnee ? (
+        // --- VUE DÉTAIL D'UNE RÉSERVATION ---
         <div
           style={{
             backgroundColor: "white",
@@ -368,17 +456,31 @@ function Admin() {
               fontWeight: "bold",
             }}
           >
-            ← Retour à la liste
+            ← Retour à la liste du mois
           </button>
 
-          <h2 style={{ marginTop: 0, color: "#333" }}>
-            {reservationSelectionnee.nom_client || "Client Inconnu"}
-          </h2>
-          <p style={{ color: "#666", fontSize: "16px" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              marginBottom: "8px",
+              flexWrap: "wrap",
+            }}
+          >
+            <h2 style={{ margin: 0, color: "#333" }}>
+              {reservationSelectionnee.nom_client || "Client Inconnu"}
+            </h2>
+            {/* BADGE STATUT DANS LE DETAIL */}
+            {getBadgeStatut(reservationSelectionnee.statut)}
+          </div>
+
+          <p style={{ color: "#666", fontSize: "16px", marginTop: "8px" }}>
             <strong>Chambre :</strong> {reservationSelectionnee.chambres?.nom}{" "}
             <br />
-            <strong>Dates :</strong> Du {reservationSelectionnee.date_arrivee}{" "}
-            au {reservationSelectionnee.date_depart}
+            <strong>Dates :</strong> Du{" "}
+            {formaterDate(reservationSelectionnee.date_arrivee)} au{" "}
+            {formaterDate(reservationSelectionnee.date_depart)}
           </p>
 
           <hr
@@ -391,7 +493,7 @@ function Admin() {
 
           {/* CHANTIER 1 : OPTIONS */}
           <section style={{ marginBottom: "30px" }}>
-            <h3 style={{ color: "#2196f3" }}>⚙️ Options du séjour</h3>
+            <h3 style={{ color: BLEU_CALIFORNIA }}>⚙️ Options du séjour</h3>
             <div
               style={{
                 padding: "16px",
@@ -424,11 +526,11 @@ function Admin() {
                           display: "flex",
                           alignItems: "center",
                           cursor: "pointer",
-                          backgroundColor: estCochee ? "#e3f2fd" : "white",
-                          padding: "10px 14px",
+                          backgroundColor: estCochee ? "#e1f5fe" : "white",
+                          padding: "12px 16px",
                           borderRadius: "8px",
                           border: estCochee
-                            ? "1px solid #2196f3"
+                            ? `1px solid ${BLEU_CALIFORNIA}`
                             : "1px solid #ddd",
                           transition: "all 0.2s",
                         }}
@@ -438,9 +540,9 @@ function Admin() {
                           checked={estCochee}
                           onChange={() => toggleOption(option)}
                           style={{
-                            marginRight: "12px",
-                            width: "18px",
-                            height: "18px",
+                            marginRight: "16px",
+                            width: "20px",
+                            height: "20px",
                             cursor: "pointer",
                           }}
                         />
@@ -448,7 +550,7 @@ function Admin() {
                           style={{
                             fontSize: "16px",
                             fontWeight: estCochee ? "bold" : "normal",
-                            color: estCochee ? "#1976d2" : "#333",
+                            color: estCochee ? BLEU_CALIFORNIA : "#333",
                           }}
                         >
                           {option}
@@ -483,7 +585,7 @@ function Admin() {
                     <p
                       style={{ margin: 0, color: "#666", fontStyle: "italic" }}
                     >
-                      Aucune consommation enregistrée pour le moment.
+                      Aucune consommation enregistrée.
                     </p>
                   ) : (
                     <table
@@ -507,7 +609,7 @@ function Admin() {
                               color: "#333",
                             }}
                           >
-                            Quantité totale
+                            Quantité
                           </th>
                         </tr>
                       </thead>
@@ -541,7 +643,7 @@ function Admin() {
 
               {/* CHANTIER 3 : SUIVI MÉNAGE */}
               <section>
-                <h3 style={{ color: "#ff9800" }}>🧹 Suivi du Ménage</h3>
+                <h3 style={{ color: ORANGE_CALIFORNIA }}>🧹 Suivi du Ménage</h3>
                 <div
                   style={{
                     padding: "16px",
@@ -587,7 +689,7 @@ function Admin() {
                               {tache.type_tache}
                             </strong>
                             <span style={{ fontSize: "14px", color: "#666" }}>
-                              Prévu le : {tache.date_prevue}
+                              Prévu le : {formaterDate(tache.date_prevue)}
                             </span>
                           </div>
                           <span
@@ -619,85 +721,144 @@ function Admin() {
           )}
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+        // --- VUE LISTE AVEC SÉLECTEUR DE MOIS ---
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           <div
             style={{
               display: "flex",
-              justifyContent: "space-between",
+              justifyContent: "center",
               alignItems: "center",
+              gap: "20px",
               marginBottom: "8px",
+              backgroundColor: "white",
+              padding: "16px",
+              borderRadius: "12px",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
             }}
           >
-            <h2 style={{ fontSize: "18px", color: "#333", margin: 0 }}>
-              {afficherAnciennes
-                ? "Toutes les réservations"
-                : "Réservations en cours et à venir"}
-            </h2>
             <button
-              onClick={() => setAfficherAnciennes(!afficherAnciennes)}
+              onClick={moisPrecedent}
               style={{
-                padding: "8px 12px",
-                backgroundColor: afficherAnciennes ? "#666" : "#e0e0e0",
-                color: afficherAnciennes ? "white" : "#333",
-                border: "none",
-                borderRadius: "6px",
+                padding: "8px 16px",
+                fontSize: "18px",
                 cursor: "pointer",
-                fontSize: "12px",
-                fontWeight: "bold",
+                border: "1px solid #ccc",
+                borderRadius: "8px",
+                backgroundColor: "#f9f9f9",
               }}
             >
-              {afficherAnciennes ? "Masquer l'historique" : "Voir l'historique"}
+              ◀
+            </button>
+            <h2
+              style={{
+                margin: 0,
+                fontSize: "22px",
+                color: "#333",
+                minWidth: "220px",
+                textAlign: "center",
+              }}
+            >
+              {MOIS_NOMS[moisActuel]} {anneeActuelle}
+            </h2>
+            <button
+              onClick={moisSuivant}
+              style={{
+                padding: "8px 16px",
+                fontSize: "18px",
+                cursor: "pointer",
+                border: "1px solid #ccc",
+                borderRadius: "8px",
+                backgroundColor: "#f9f9f9",
+              }}
+            >
+              ▶
             </button>
           </div>
 
           {reservations.length === 0 ? (
-            <p style={{ color: "#666", fontStyle: "italic" }}>
-              Aucune réservation trouvée.
-            </p>
+            <div
+              style={{
+                textAlign: "center",
+                padding: "40px",
+                backgroundColor: "white",
+                borderRadius: "12px",
+                border: "2px dashed #ccc",
+              }}
+            >
+              <p style={{ color: "#666", fontSize: "16px", margin: 0 }}>
+                Aucune réservation trouvée pour ce mois.
+              </p>
+            </div>
           ) : (
-            reservations.map((resa) => (
-              <div
-                key={resa.id}
-                onClick={() => setReservationSelectionnee(resa)}
-                style={{
-                  backgroundColor: "white",
-                  padding: "16px",
-                  borderRadius: "8px",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                  cursor: "pointer",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  borderLeft: "4px solid #2196f3",
-                  transition: "transform 0.1s",
-                }}
-                onMouseOver={(e) =>
-                  (e.currentTarget.style.transform = "translateX(5px)")
-                }
-                onMouseOut={(e) =>
-                  (e.currentTarget.style.transform = "translateX(0px)")
-                }
-              >
-                <div>
-                  <strong
+            reservations.map((resa) => {
+              // Est-ce une réservation annulée/refusée ?
+              const estAnnulee =
+                resa.statut === "Declined" || resa.statut === "Cancelled";
+
+              return (
+                <div
+                  key={resa.id}
+                  onClick={() => setReservationSelectionnee(resa)}
+                  style={{
+                    backgroundColor: "white",
+                    padding: "20px",
+                    borderRadius: "10px",
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+                    cursor: "pointer",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    borderLeft: `5px solid ${estAnnulee ? "#f44336" : BLEU_CALIFORNIA}`, // Liseré rouge si annulé
+                    opacity: estAnnulee ? 0.6 : 1, // Légèrement transparent si annulé
+                    transition: "transform 0.1s, box-shadow 0.1s",
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.transform = "translateX(5px)";
+                    e.currentTarget.style.boxShadow =
+                      "0 4px 12px rgba(0,0,0,0.1)";
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = "translateX(0px)";
+                    e.currentTarget.style.boxShadow =
+                      "0 2px 6px rgba(0,0,0,0.05)";
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      <strong style={{ fontSize: "18px", color: "#333" }}>
+                        {resa.nom_client || "Client Inconnu"}
+                      </strong>
+                      {/* BADGE STATUT DANS LA LISTE */}
+                      {getBadgeStatut(resa.statut)}
+                    </div>
+
+                    <span style={{ fontSize: "15px", color: "#666" }}>
+                      <strong>{resa.chambres?.nom}</strong> • Du{" "}
+                      {formaterDate(resa.date_arrivee)} au{" "}
+                      {formaterDate(resa.date_depart)}
+                    </span>
+                  </div>
+                  <div
                     style={{
-                      display: "block",
-                      fontSize: "16px",
-                      marginBottom: "4px",
+                      color: estAnnulee ? "#f44336" : BLEU_CALIFORNIA,
+                      fontWeight: "bold",
+                      padding: "8px 16px",
+                      backgroundColor: estAnnulee ? "#ffebee" : "#f0f8ff",
+                      borderRadius: "6px",
                     }}
                   >
-                    {resa.nom_client || "Client Inconnu"}
-                  </strong>
-                  <span style={{ fontSize: "14px", color: "#666" }}>
-                    {resa.chambres?.nom} • Du {resa.date_arrivee} au{" "}
-                    {resa.date_depart}
-                  </span>
+                    Gérer →
+                  </div>
                 </div>
-                <div style={{ color: "#2196f3", fontWeight: "bold" }}>
-                  Ouvrir →
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       )}
