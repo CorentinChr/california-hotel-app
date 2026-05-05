@@ -81,8 +81,10 @@ serve(async (req) => {
     if (reservationsToUpsert.length > 0) {
       const { data: upsertedData, error: upsertError } = await supabase
         .from('reservations')
-        .upsert(reservationsToUpsert, { onConflict: 'lodgify_id' })
-        // NOUVEAU : On récupère aussi options_json pour la génération des checklists
+        .upsert(reservationsToUpsert, { 
+          onConflict: 'lodgify_id',
+          ignoreDuplicates: false // FORCER LE RENVOI DE LA LIGNE MÊME SI IDENTIQUE
+        })
         .select('id, lodgify_id, chambre_id, date_arrivee, date_depart, statut, options_json') 
       
       if (upsertError) throw upsertError;

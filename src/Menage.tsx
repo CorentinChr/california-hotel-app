@@ -53,6 +53,9 @@ function Menage() {
   const [produits, setProduits] = useState<MinibarProduit[]>([]);
   const [chargement, setChargement] = useState(true);
 
+  // État pour afficher les tâches du futur
+  const [afficherProchaines, setAfficherProchaines] = useState(false);
+
   // États pour les fenêtres dépliantes
   const [tacheDepliee, setTacheDepliee] = useState<string | null>(null);
   const [chambreDepliee, setChambreDepliee] = useState<string | null>(null);
@@ -63,19 +66,31 @@ function Menage() {
   const BLEU_CALIFORNIA = "#009CD8";
   const ORANGE_CALIFORNIA = "#E95219";
 
+  // --- OUTIL FORMATAGE DATE ---
+  const formaterDate = (dateString: string) => {
+    const [annee, mois, jour] = dateString.split("-");
+    return `${jour}/${mois}/${annee}`;
+  };
+
   useEffect(() => {
     async function fetchData() {
       const pastDate = new Date();
       pastDate.setDate(pastDate.getDate() - 10);
       const ilYa10Jours = pastDate.toISOString().split("T")[0];
 
+      // On calcule une date dans le futur (ex: +15 jours) pour anticiper le ménage
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 15);
+      const dans15Jours = futureDate.toISOString().split("T")[0];
+
+      // La requête prend les tâches passées (si A FAIRE) ET les tâches futures (jusqu'à 15 jours)
       const { data: tachesData } = await supabase
         .from("taches")
         .select(
           `id, date_prevue, type_tache, statut, reservations ( nom_client ), chambres ( nom ), tache_items_execution ( id, libelle, ordre, est_fait ), minibar_consommations ( id, produit_id, quantite )`,
         )
         .or(
-          `date_prevue.eq.${aujourdhui},and(date_prevue.gte.${ilYa10Jours},date_prevue.lt.${aujourdhui},statut.eq."A FAIRE")`,
+          `and(date_prevue.gte.${aujourdhui},date_prevue.lte.${dans15Jours}),and(date_prevue.gte.${ilYa10Jours},date_prevue.lt.${aujourdhui},statut.eq."A FAIRE")`,
         )
         .order("date_prevue", { ascending: true });
 
@@ -268,6 +283,18 @@ function Menage() {
     {} as Record<string, TacheRecurrente[]>,
   );
 
+  // --- LOGIQUE DE FILTRAGE (Aujourd'hui + Futur si activé + UNIQUEMENT Arrivées pour le futur) ---
+  const tachesFiltrees = taches.filter((t) => {
+    // 1. Toujours afficher les tâches d'aujourd'hui et celles en retard (passé)
+    if (t.date_prevue <= aujourdhui) return true;
+
+    // 2. Si le bouton "Afficher prochaines" est activé, on affiche le futur...
+    // MAIS on force à ne montrer QUE les "Arrivées" (impossible d'anticiper un départ/intermédiaire)
+    if (afficherProchaines && t.type_tache === "Arrivée") return true;
+
+    return false;
+  });
+
   return (
     // CONTENEUR PRINCIPAL ÉLARGI ET RESPONSIVE
     <div
@@ -299,7 +326,7 @@ function Menage() {
         }}
       >
         <h1 style={{ margin: 0, fontSize: "24px", fontWeight: "bold" }}>
-          🧹 Planning Ménage
+          Planning du ménage
         </h1>
         <button
           onClick={() => navigate("/admin")}
@@ -314,7 +341,7 @@ function Menage() {
             fontSize: "16px",
           }}
         >
-          ⚙️ Admin
+          Menu administrateur
         </button>
       </header>
 
@@ -339,12 +366,12 @@ function Menage() {
             cursor: "pointer",
             transition: "all 0.2s ease",
             backgroundColor:
-              ongletActif === "QUOTIDIEN" ? BLEU_CALIFORNIA : "white",
+              ongletActif === "QUOTIDIEN" ? ORANGE_CALIFORNIA : "white",
             color: ongletActif === "QUOTIDIEN" ? "white" : "#666",
             boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
           }}
         >
-          📅 Réservations
+          Réservations
         </button>
         <button
           onClick={() => setOngletActif("RECURRENTES")}
@@ -358,12 +385,12 @@ function Menage() {
             cursor: "pointer",
             transition: "all 0.2s ease",
             backgroundColor:
-              ongletActif === "RECURRENTES" ? BLEU_CALIFORNIA : "white",
+              ongletActif === "RECURRENTES" ? ORANGE_CALIFORNIA : "white",
             color: ongletActif === "RECURRENTES" ? "white" : "#666",
             boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
           }}
         >
-          ✨ Tâches récurrentes
+          Tâches récurrentes
         </button>
       </div>
 
@@ -381,7 +408,7 @@ function Menage() {
       ) : ongletActif === "QUOTIDIEN" ? (
         /* ONGLET 1 : TÂCHES QUOTIDIENNES */
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          {taches.length === 0 ? (
+          {tachesFiltrees.length === 0 ? (
             <div
               style={{
                 textAlign: "center",
@@ -396,8 +423,9 @@ function Menage() {
               </h2>
             </div>
           ) : (
-            taches.map((tache) => {
+            tachesFiltrees.map((tache) => {
               const estTermine = tache.statut === "TERMINÉ";
+              const estDansLeFutur = tache.date_prevue > aujourdhui;
 
               return (
                 <div
@@ -433,19 +461,27 @@ function Menage() {
                       >
                         {tache.chambres?.nom} – {tache.type_tache}
                       </strong>
+
+                      {/* Distinguer le futur du passé (retard) */}
                       {tache.date_prevue !== aujourdhui && !estTermine && (
                         <span
                           style={{
                             fontSize: "13px",
-                            color: ORANGE_CALIFORNIA,
+                            color: estDansLeFutur
+                              ? BLEU_CALIFORNIA
+                              : ORANGE_CALIFORNIA,
                             fontWeight: "bold",
                             display: "block",
                             marginBottom: "4px",
                           }}
                         >
-                          ⚠️ Prévu le : {tache.date_prevue}
+                          {estDansLeFutur
+                            ? "🗓️ À faire en avance pour le :"
+                            : "⚠️ En retard depuis le :"}{" "}
+                          {formaterDate(tache.date_prevue)}
                         </span>
                       )}
+
                       <div style={{ fontSize: "15px", color: "#666" }}>
                         Client :{" "}
                         <strong>
@@ -546,11 +582,12 @@ function Menage() {
                         📝 Check-list à vérifier :
                       </h4>
 
+                      {/* --- CHECKLIST CONDENSÉE (Grille) --- */}
                       <div
                         style={{
                           display: "grid",
                           gridTemplateColumns:
-                            "repeat(auto-fill, minmax(220px, 1fr))", // Crée des colonnes automatiques !
+                            "repeat(auto-fill, minmax(220px, 1fr))",
                           gap: "10px",
                         }}
                       >
@@ -573,7 +610,7 @@ function Menage() {
                                 style={{
                                   display: "flex",
                                   alignItems: "center",
-                                  padding: "8px 12px", // Légèrement réduit
+                                  padding: "8px 12px",
                                   backgroundColor: item.est_fait
                                     ? "#f9f9f9"
                                     : "white",
@@ -593,7 +630,7 @@ function Menage() {
                                     toggleItem(tache.id, item.id, item.est_fait)
                                   }
                                   style={{
-                                    marginRight: "10px", // Réduit pour gagner de la place
+                                    marginRight: "10px",
                                     width: "18px",
                                     height: "18px",
                                     cursor: "pointer",
@@ -739,7 +776,7 @@ function Menage() {
                         </div>
                       )}
 
-                      {/* --- NOUVEAU BOUTON FERMER EN BAS DE DÉTAIL --- */}
+                      {/* --- BOUTON FERMER EN BAS DE DÉTAIL --- */}
                       <button
                         onClick={() => setTacheDepliee(null)}
                         style={{
@@ -764,6 +801,29 @@ function Menage() {
               );
             })
           )}
+
+          {/* BOUTON VOIR PROCHAINES ARRIVÉES */}
+          <button
+            onClick={() => setAfficherProchaines(!afficherProchaines)}
+            style={{
+              marginTop: "8px",
+              padding: "16px",
+              backgroundColor: "white",
+              color: BLEU_CALIFORNIA,
+              border: `2px dashed ${BLEU_CALIFORNIA}`,
+              borderRadius: "12px",
+              cursor: "pointer",
+              fontWeight: "bold",
+              fontSize: "16px",
+              textAlign: "center",
+              width: "100%",
+              transition: "all 0.2s ease",
+            }}
+          >
+            {afficherProchaines
+              ? "▲ Masquer les arrivées des prochains jours"
+              : "▼ Voir les prochaines arrivées"}
+          </button>
         </div>
       ) : (
         /* ONGLET 2 : TÂCHES RÉCURRENTES (ACCORDÉON) */
@@ -856,121 +916,154 @@ function Menage() {
                     </span>
                   </div>
 
-                  {/* Liste des tâches DÉPLIANTE */}
+                  {/* Liste des tâches DÉPLIANTE TRIÉE PAR FRÉQUENCE */}
                   {estDepliee && (
-                    <div style={{ display: "flex", flexDirection: "column" }}>
-                      {tachesChambre
-                        .sort((a, b) => {
-                          const tDiffA =
-                            new Date(aujourdhui).getTime() -
-                            new Date(a.derniere_execution).getTime();
-                          const tDiffB =
-                            new Date(aujourdhui).getTime() -
-                            new Date(b.derniere_execution).getTime();
-                          const restA =
-                            a.frequence_jours -
-                            Math.floor(tDiffA / (1000 * 3600 * 24));
-                          const restB =
-                            b.frequence_jours -
-                            Math.floor(tDiffB / (1000 * 3600 * 24));
-                          return restA - restB;
-                        })
-                        .map((tache, index) => {
-                          const statut = calculerStatutDelai(
-                            tache.derniere_execution,
-                            tache.frequence_jours,
-                          );
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        padding: "0 20px 20px 20px",
+                      }}
+                    >
+                      {/* LOGIQUE DE GROUPEMENT PAR FRÉQUENCE */}
+                      {(() => {
+                        // 1. Grouper par fréquence
+                        const tachesParFrequence = tachesChambre.reduce(
+                          (acc, tache) => {
+                            if (!acc[tache.frequence_jours])
+                              acc[tache.frequence_jours] = [];
+                            acc[tache.frequence_jours].push(tache);
+                            return acc;
+                          },
+                          {} as Record<number, TacheRecurrente[]>,
+                        );
 
-                          return (
-                            <div
-                              key={tache.id}
+                        // 2. Trier les fréquences (30, puis 90, puis 180...)
+                        const frequencesTriees = Object.keys(tachesParFrequence)
+                          .map(Number)
+                          .sort((a, b) => a - b);
+
+                        return frequencesTriees.map((freq) => (
+                          <div
+                            key={freq}
+                            style={{ marginBottom: "24px", marginTop: "16px" }}
+                          >
+                            <h4
                               style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                padding: "20px",
-                                borderBottom:
-                                  index < tachesChambre.length - 1
-                                    ? "1px solid #eee"
-                                    : "none",
-                                flexWrap: "wrap",
-                                gap: "16px",
+                                margin: "0 0 12px 0",
+                                color: "#888",
+                                fontSize: "13px",
+                                textTransform: "uppercase",
+                                letterSpacing: "1px",
                               }}
                             >
-                              <div style={{ flex: "1 1 200px" }}>
-                                <span
-                                  style={{
-                                    fontSize: "16px",
-                                    color: "#333",
-                                    display: "block",
-                                    marginBottom: "8px",
-                                    fontWeight: "bold",
-                                  }}
-                                >
-                                  {tache.libelle}
-                                </span>
-                                <span
-                                  style={{
-                                    fontSize: "13px",
-                                    fontWeight: "bold",
-                                    padding: "6px 12px",
-                                    borderRadius: "16px",
-                                    backgroundColor: statut.bg,
-                                    color: statut.couleur,
-                                    display: "inline-block",
-                                  }}
-                                >
-                                  {statut.texte}
-                                </span>
-                              </div>
+                              ⏳ À faire tous les {freq} jours
+                            </h4>
 
-                              <button
-                                onClick={() => validerTacheRecurrente(tache.id)}
-                                style={{
-                                  padding: "12px 20px",
-                                  backgroundColor: "white",
-                                  color: BLEU_CALIFORNIA,
-                                  border: `2px solid ${BLEU_CALIFORNIA}`,
-                                  borderRadius: "8px",
-                                  cursor: "pointer",
-                                  fontSize: "14px",
-                                  fontWeight: "bold",
-                                  whiteSpace: "nowrap",
-                                  flex: "1 1 auto",
-                                  textAlign: "center",
-                                  transition: "all 0.2s",
-                                }}
-                                onMouseOver={(e) => {
-                                  e.currentTarget.style.backgroundColor =
-                                    BLEU_CALIFORNIA;
-                                  e.currentTarget.style.color = "white";
-                                }}
-                                onMouseOut={(e) => {
-                                  e.currentTarget.style.backgroundColor =
-                                    "white";
-                                  e.currentTarget.style.color = BLEU_CALIFORNIA;
-                                }}
-                              >
-                                ✔ Marquer fait
-                              </button>
+                            {/* Les Pilules condensées */}
+                            <div
+                              style={{
+                                display: "flex",
+                                flexWrap: "wrap",
+                                gap: "12px",
+                              }}
+                            >
+                              {tachesParFrequence[freq]
+                                .sort((a, b) => {
+                                  // Tri par urgence à l'intérieur d'une même fréquence
+                                  const timeA =
+                                    new Date(aujourdhui).getTime() -
+                                    new Date(a.derniere_execution).getTime();
+                                  const timeB =
+                                    new Date(aujourdhui).getTime() -
+                                    new Date(b.derniere_execution).getTime();
+                                  const restA =
+                                    a.frequence_jours -
+                                    Math.floor(timeA / (1000 * 3600 * 24));
+                                  const restB =
+                                    b.frequence_jours -
+                                    Math.floor(timeB / (1000 * 3600 * 24));
+                                  return restA - restB;
+                                })
+                                .map((tache) => {
+                                  const statut = calculerStatutDelai(
+                                    tache.derniere_execution,
+                                    tache.frequence_jours,
+                                  );
+
+                                  return (
+                                    <button
+                                      key={tache.id}
+                                      onClick={() => {
+                                        // Avertissement de sécurité pour les clics accidentels
+                                        if (
+                                          window.confirm(
+                                            `Valider l'entretien "${tache.libelle}" comme fait aujourd'hui ?`,
+                                          )
+                                        ) {
+                                          validerTacheRecurrente(tache.id);
+                                        }
+                                      }}
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "8px",
+                                        padding: "10px 16px",
+                                        backgroundColor: "white",
+                                        border: `2px solid ${statut.estUrgent ? ORANGE_CALIFORNIA : "#eee"}`,
+                                        borderRadius: "20px",
+                                        cursor: "pointer",
+                                        transition: "all 0.2s",
+                                        boxShadow: statut.estUrgent
+                                          ? `0 2px 8px ${ORANGE_CALIFORNIA}40`
+                                          : "0 2px 4px rgba(0,0,0,0.05)",
+                                      }}
+                                    >
+                                      <span
+                                        style={{
+                                          fontSize: "14px",
+                                          fontWeight: "bold",
+                                          color: "#333",
+                                        }}
+                                      >
+                                        {tache.libelle}
+                                      </span>
+                                      <span
+                                        style={{
+                                          backgroundColor: statut.bg,
+                                          color: statut.couleur,
+                                          padding: "4px 8px",
+                                          borderRadius: "12px",
+                                          fontSize: "11px",
+                                          fontWeight: "bold",
+                                        }}
+                                      >
+                                        {statut.texte}
+                                      </span>
+                                    </button>
+                                  );
+                                })}
                             </div>
-                          );
-                        })}
+                          </div>
+                        ));
+                      })()}
 
-                      {/* BOUTON FERMER EN BAS DE CARTE */}
+                      {/* BOUTON FERMER EN BAS DE CARTE RÉCURRENTE */}
                       <button
                         onClick={() => setChambreDepliee(null)}
                         style={{
-                          padding: "16px",
-                          backgroundColor: "#f5f5f5",
-                          color: BLEU_CALIFORNIA,
+                          marginTop: "8px",
+                          padding: "14px",
+                          backgroundColor: "#e0e0e0",
+                          color: "#333",
                           border: "none",
-                          borderTop: "1px solid #eee",
+                          borderRadius: "8px",
                           cursor: "pointer",
                           fontWeight: "bold",
                           fontSize: "14px",
                           textAlign: "center",
                           width: "100%",
+                          transition: "0.2s",
                         }}
                       >
                         ▲ FERMER LA LISTE

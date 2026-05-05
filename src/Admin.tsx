@@ -390,7 +390,7 @@ function Admin() {
           gap: "12px",
         }}
       >
-        <h1 style={{ margin: 0, fontSize: "22px" }}>⚙️ Panel Admin</h1>
+        <h1 style={{ margin: 0, fontSize: "22px" }}>Panel Admin</h1>
         <div style={{ display: "flex", gap: "12px" }}>
           <button
             onClick={() => navigate("/")}
@@ -404,7 +404,7 @@ function Admin() {
               fontWeight: "bold",
             }}
           >
-            🧹 Tablette
+            Tablette
           </button>
           <button
             onClick={seDeconnecter}
