@@ -548,9 +548,10 @@ function Menage() {
 
                       <div
                         style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "8px",
+                          display: "grid",
+                          gridTemplateColumns:
+                            "repeat(auto-fill, minmax(220px, 1fr))", // Crée des colonnes automatiques !
+                          gap: "10px",
                         }}
                       >
                         {tache.tache_items_execution.length === 0 ? (
@@ -572,7 +573,7 @@ function Menage() {
                                 style={{
                                   display: "flex",
                                   alignItems: "center",
-                                  padding: "10px 14px",
+                                  padding: "8px 12px", // Légèrement réduit
                                   backgroundColor: item.est_fait
                                     ? "#f9f9f9"
                                     : "white",
@@ -592,14 +593,18 @@ function Menage() {
                                     toggleItem(tache.id, item.id, item.est_fait)
                                   }
                                   style={{
-                                    marginRight: "16px",
-                                    width: "20px",
-                                    height: "20px",
+                                    marginRight: "10px", // Réduit pour gagner de la place
+                                    width: "18px",
+                                    height: "18px",
                                     cursor: "pointer",
                                   }}
                                 />
                                 <span
-                                  style={{ fontSize: "16px", color: "#444" }}
+                                  style={{
+                                    fontSize: "14px",
+                                    color: "#444",
+                                    lineHeight: "1.3",
+                                  }}
                                 >
                                   {item.libelle}
                                 </span>

@@ -13,12 +13,12 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // 1. Fenêtre de recherche (-10 jours -> +30 jours)
+    // 1. Fenêtre de recherche (-10 jours -> +90 jours)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
     const pastDays = 10
-    const horizonDays = 30
+    const horizonDays = 90
     const startDate = new Date(today.getTime() - pastDays * 24 * 3600 * 1000)
     const endDate = new Date(today.getTime() + horizonDays * 24 * 3600 * 1000)
     endDate.setHours(23, 59, 59, 999)
