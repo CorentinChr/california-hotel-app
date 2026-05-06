@@ -11,6 +11,7 @@ interface Reservation {
   chambres: { nom: string };
   options_json: Record<string, any>;
   statut: string;
+  conso_minibar: number; // <-- NOUVEAU
 }
 
 interface TacheInfo {
@@ -23,6 +24,7 @@ interface TacheInfo {
 interface ConsoAgregee {
   nom: string;
   quantite: number;
+  prix: number; // <-- NOUVEAU
 }
 
 const MOIS_NOMS = [
@@ -142,23 +144,23 @@ function Admin() {
     return `${jour}/${mois}/${annee}`;
   };
 
-  // --- NOUVEAU : FONCTION POUR LES BADGES DE STATUT ---
+  // --- FONCTION POUR LES BADGES DE STATUT ---
   const getBadgeStatut = (statut: string) => {
     let bgColor = "#e0e0e0";
     let color = "#333";
     let label = statut;
 
     if (statut === "Booked") {
-      bgColor = "#e8f5e9"; // Vert très clair
-      color = "#4caf50"; // Vert foncé
+      bgColor = "#e8f5e9";
+      color = "#4caf50";
       label = "Confirmée";
     } else if (statut === "Declined" || statut === "Cancelled") {
-      bgColor = "#ffebee"; // Rouge très clair
-      color = "#f44336"; // Rouge foncé
+      bgColor = "#ffebee";
+      color = "#f44336";
       label = "Refusée / Annulée";
     } else if (statut === "Open") {
-      bgColor = "#fff3e0"; // Orange très clair
-      color = "#ff9800"; // Orange foncé
+      bgColor = "#fff3e0";
+      color = "#ff9800";
       label = "En attente";
     }
 
@@ -209,7 +211,7 @@ function Admin() {
     const { data, error } = await supabase
       .from("reservations")
       .select(
-        `id, nom_client, date_arrivee, date_depart, statut, options_json, chambres ( nom )`,
+        `id, nom_client, date_arrivee, date_depart, statut, options_json, conso_minibar, chambres ( nom )`, // <-- AJOUT conso_minibar
       )
       .lte("date_arrivee", dernierJour)
       .gte("date_depart", premierJour)
@@ -241,14 +243,22 @@ function Admin() {
       if (tacheIds.length > 0) {
         const { data: consosData } = await supabase
           .from("minibar_consommations")
-          .select("quantite, minibar_produits(nom)")
+          .select("quantite, minibar_produits(nom, prix)") // <-- AJOUT DU PRIX
           .in("tache_id", tacheIds);
+
         if (consosData) {
           const recapitulatif: Record<string, ConsoAgregee> = {};
           consosData.forEach((conso: any) => {
             const nomProduit = conso.minibar_produits?.nom || "Produit inconnu";
+            const prixProduit = conso.minibar_produits?.prix || 0; // <-- AJOUT DU PRIX
+
             if (!recapitulatif[nomProduit])
-              recapitulatif[nomProduit] = { nom: nomProduit, quantite: 0 };
+              recapitulatif[nomProduit] = {
+                nom: nomProduit,
+                quantite: 0,
+                prix: prixProduit,
+              }; // <-- AJOUT DU PRIX
+
             recapitulatif[nomProduit].quantite += conso.quantite;
           });
           setConsosResa(Object.values(recapitulatif));
@@ -390,7 +400,7 @@ function Admin() {
           gap: "12px",
         }}
       >
-        <h1 style={{ margin: 0, fontSize: "22px" }}>Panel Admin</h1>
+        <h1 style={{ margin: 0, fontSize: "22px" }}>⚙️ Panel Admin</h1>
         <div style={{ display: "flex", gap: "12px" }}>
           <button
             onClick={() => navigate("/")}
@@ -404,7 +414,7 @@ function Admin() {
               fontWeight: "bold",
             }}
           >
-            Tablette
+            🧹 Tablette
           </button>
           <button
             onClick={seDeconnecter}
@@ -435,7 +445,7 @@ function Admin() {
           Chargement des données...
         </div>
       ) : reservationSelectionnee ? (
-        // --- VUE DÉTAIL D'UNE RÉSERVATION ---
+        // --- VUE DÉTAIL ---
         <div
           style={{
             backgroundColor: "white",
@@ -471,7 +481,6 @@ function Admin() {
             <h2 style={{ margin: 0, color: "#333" }}>
               {reservationSelectionnee.nom_client || "Client Inconnu"}
             </h2>
-            {/* BADGE STATUT DANS LE DETAIL */}
             {getBadgeStatut(reservationSelectionnee.statut)}
           </div>
 
@@ -491,7 +500,7 @@ function Admin() {
             }}
           />
 
-          {/* CHANTIER 1 : OPTIONS */}
+          {/* CHANTIER 1 : OPTIONS (Condensées) */}
           <section style={{ marginBottom: "30px" }}>
             <h3 style={{ color: BLEU_CALIFORNIA }}>⚙️ Options du séjour</h3>
             <div
@@ -506,13 +515,7 @@ function Admin() {
                   Aucune option configurée.
                 </p>
               ) : (
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "12px",
-                  }}
-                >
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
                   {optionsDisponibles.map((option) => {
                     const estCochee =
                       reservationSelectionnee.options_json &&
@@ -527,10 +530,10 @@ function Admin() {
                           alignItems: "center",
                           cursor: "pointer",
                           backgroundColor: estCochee ? "#e1f5fe" : "white",
-                          padding: "12px 16px",
-                          borderRadius: "8px",
+                          padding: "10px 16px",
+                          borderRadius: "20px",
                           border: estCochee
-                            ? `1px solid ${BLEU_CALIFORNIA}`
+                            ? `2px solid ${BLEU_CALIFORNIA}`
                             : "1px solid #ddd",
                           transition: "all 0.2s",
                         }}
@@ -540,15 +543,15 @@ function Admin() {
                           checked={estCochee}
                           onChange={() => toggleOption(option)}
                           style={{
-                            marginRight: "16px",
-                            width: "20px",
-                            height: "20px",
+                            marginRight: "12px",
+                            width: "18px",
+                            height: "18px",
                             cursor: "pointer",
                           }}
                         />
                         <span
                           style={{
-                            fontSize: "16px",
+                            fontSize: "15px",
                             fontWeight: estCochee ? "bold" : "normal",
                             color: estCochee ? BLEU_CALIFORNIA : "#333",
                           }}
@@ -592,24 +595,47 @@ function Admin() {
                       style={{ width: "100%", borderCollapse: "collapse" }}
                     >
                       <thead>
-                        <tr style={{ borderBottom: "2px solid #ddd" }}>
+                        <tr
+                          style={{
+                            borderBottom: "2px solid #ddd",
+                            fontSize: "14px",
+                          }}
+                        >
                           <th
                             style={{
                               textAlign: "left",
                               padding: "8px",
-                              color: "#333",
+                              color: "#666",
                             }}
                           >
                             Produit
                           </th>
                           <th
                             style={{
-                              textAlign: "right",
+                              textAlign: "center",
                               padding: "8px",
-                              color: "#333",
+                              color: "#666",
                             }}
                           >
-                            Quantité
+                            Prix U.
+                          </th>
+                          <th
+                            style={{
+                              textAlign: "center",
+                              padding: "8px",
+                              color: "#666",
+                            }}
+                          >
+                            Qté
+                          </th>
+                          <th
+                            style={{
+                              textAlign: "right",
+                              padding: "8px",
+                              color: "#666",
+                            }}
+                          >
+                            Sous-total
                           </th>
                         </tr>
                       </thead>
@@ -619,8 +645,33 @@ function Admin() {
                             key={index}
                             style={{ borderBottom: "1px solid #eee" }}
                           >
-                            <td style={{ padding: "12px 8px", color: "#444" }}>
+                            <td
+                              style={{
+                                padding: "12px 8px",
+                                color: "#444",
+                                fontWeight: "bold",
+                              }}
+                            >
                               {conso.nom}
+                            </td>
+                            <td
+                              style={{
+                                padding: "12px 8px",
+                                textAlign: "center",
+                                color: "#888",
+                              }}
+                            >
+                              {conso.prix.toFixed(2)} €
+                            </td>
+                            <td
+                              style={{
+                                padding: "12px 8px",
+                                textAlign: "center",
+                                fontWeight: "bold",
+                                color: BLEU_CALIFORNIA,
+                              }}
+                            >
+                              x {conso.quantite}
                             </td>
                             <td
                               style={{
@@ -631,17 +682,47 @@ function Admin() {
                                 color: "#4caf50",
                               }}
                             >
-                              {conso.quantite}
+                              {(conso.quantite * conso.prix).toFixed(2)} €
                             </td>
                           </tr>
                         ))}
                       </tbody>
+                      <tfoot>
+                        <tr style={{ backgroundColor: "#e8f5e9" }}>
+                          <td
+                            colSpan={3}
+                            style={{
+                              padding: "16px 8px",
+                              textAlign: "right",
+                              fontWeight: "bold",
+                              color: "#333",
+                              fontSize: "16px",
+                            }}
+                          >
+                            TOTAL À FACTURER :
+                          </td>
+                          <td
+                            style={{
+                              padding: "16px 8px",
+                              textAlign: "right",
+                              fontWeight: "bold",
+                              fontSize: "20px",
+                              color: "#4caf50",
+                            }}
+                          >
+                            {reservationSelectionnee.conso_minibar?.toFixed(
+                              2,
+                            ) || "0.00"}{" "}
+                            €
+                          </td>
+                        </tr>
+                      </tfoot>
                     </table>
                   )}
                 </div>
               </section>
 
-              {/* CHANTIER 3 : SUIVI MÉNAGE */}
+              {/* CHANTIER 3 : SUIVI MÉNAGE (Condensé) */}
               <section>
                 <h3 style={{ color: ORANGE_CALIFORNIA }}>🧹 Suivi du Ménage</h3>
                 <div
@@ -661,8 +742,8 @@ function Admin() {
                     <div
                       style={{
                         display: "flex",
-                        flexDirection: "column",
-                        gap: "8px",
+                        flexWrap: "wrap",
+                        gap: "10px",
                       }}
                     >
                       {tachesResa.map((tache) => (
@@ -670,28 +751,21 @@ function Admin() {
                           key={tache.id}
                           style={{
                             display: "flex",
-                            justifyContent: "space-between",
                             alignItems: "center",
-                            padding: "12px",
+                            gap: "10px",
+                            padding: "10px 16px",
                             backgroundColor: "white",
-                            border: "1px solid #eee",
-                            borderRadius: "6px",
+                            border: `1px solid ${tache.statut === "A FAIRE" ? "#f44336" : "#4caf50"}`,
+                            borderRadius: "20px",
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
                           }}
                         >
-                          <div>
-                            <strong
-                              style={{
-                                display: "block",
-                                color: "#333",
-                                marginBottom: "4px",
-                              }}
-                            >
-                              {tache.type_tache}
-                            </strong>
-                            <span style={{ fontSize: "14px", color: "#666" }}>
-                              Prévu le : {formaterDate(tache.date_prevue)}
-                            </span>
-                          </div>
+                          <strong style={{ color: "#333", fontSize: "15px" }}>
+                            {tache.type_tache}
+                          </strong>
+                          <span style={{ fontSize: "13px", color: "#666" }}>
+                            ({formaterDate(tache.date_prevue)})
+                          </span>
                           <span
                             style={{
                               backgroundColor:
@@ -702,11 +776,10 @@ function Admin() {
                                 tache.statut === "A FAIRE"
                                   ? "#f44336"
                                   : "#4caf50",
-                              padding: "6px 12px",
+                              padding: "4px 10px",
                               borderRadius: "12px",
-                              fontSize: "12px",
+                              fontSize: "11px",
                               fontWeight: "bold",
-                              border: `1px solid ${tache.statut === "A FAIRE" ? "#f44336" : "#4caf50"}`,
                             }}
                           >
                             {tache.statut}
@@ -791,7 +864,6 @@ function Admin() {
             </div>
           ) : (
             reservations.map((resa) => {
-              // Est-ce une réservation annulée/refusée ?
               const estAnnulee =
                 resa.statut === "Declined" || resa.statut === "Cancelled";
 
@@ -808,8 +880,8 @@ function Admin() {
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    borderLeft: `5px solid ${estAnnulee ? "#f44336" : BLEU_CALIFORNIA}`, // Liseré rouge si annulé
-                    opacity: estAnnulee ? 0.6 : 1, // Légèrement transparent si annulé
+                    borderLeft: `5px solid ${estAnnulee ? "#f44336" : BLEU_CALIFORNIA}`,
+                    opacity: estAnnulee ? 0.6 : 1,
                     transition: "transform 0.1s, box-shadow 0.1s",
                   }}
                   onMouseOver={(e) => {
@@ -835,10 +907,8 @@ function Admin() {
                       <strong style={{ fontSize: "18px", color: "#333" }}>
                         {resa.nom_client || "Client Inconnu"}
                       </strong>
-                      {/* BADGE STATUT DANS LA LISTE */}
                       {getBadgeStatut(resa.statut)}
                     </div>
-
                     <span style={{ fontSize: "15px", color: "#666" }}>
                       <strong>{resa.chambres?.nom}</strong> • Du{" "}
                       {formaterDate(resa.date_arrivee)} au{" "}

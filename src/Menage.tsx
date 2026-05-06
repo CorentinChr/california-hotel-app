@@ -12,6 +12,7 @@ interface TacheItem {
 interface MinibarProduit {
   id: string;
   nom: string;
+  prix: number;
 }
 interface MinibarConsommation {
   id: string;
@@ -21,6 +22,7 @@ interface MinibarConsommation {
 
 interface Tache {
   id: string;
+  reservation_id: string;
   date_prevue: string;
   type_tache: string;
   statut: string;
@@ -87,7 +89,7 @@ function Menage() {
       const { data: tachesData } = await supabase
         .from("taches")
         .select(
-          `id, date_prevue, type_tache, statut, reservations ( nom_client ), chambres ( nom ), tache_items_execution ( id, libelle, ordre, est_fait ), minibar_consommations ( id, produit_id, quantite )`,
+          `id, reservation_id, date_prevue, type_tache, statut, reservations ( nom_client ), chambres ( nom ), tache_items_execution ( id, libelle, ordre, est_fait ), minibar_consommations ( id, produit_id, quantite )`,
         )
         .or(
           `and(date_prevue.gte.${aujourdhui},date_prevue.lte.${dans15Jours}),and(date_prevue.gte.${ilYa10Jours},date_prevue.lt.${aujourdhui},statut.eq."A FAIRE")`,
@@ -226,6 +228,28 @@ function Menage() {
               : t,
           ),
         );
+    }
+    // --- CALCUL DU TOTAL EN BASE DE DONNÉES ---
+    const produit = produits.find((p) => p.id === produitId);
+    if (produit && produit.prix !== undefined) {
+      // 1. On récupère le total actuel de la réservation
+      const { data: resa } = await supabase
+        .from("reservations")
+        .select("conso_minibar")
+        .eq("id", tache.reservation_id)
+        .single();
+
+      const ancienTotal = resa?.conso_minibar || 0;
+
+      // 2. On calcule le nouveau total (changement est +1 ou -1)
+      let nouveauTotal = ancienTotal + changement * produit.prix;
+      if (nouveauTotal < 0) nouveauTotal = 0; // Sécurité anti-négatif
+
+      // 3. On met à jour la réservation silencieusement
+      await supabase
+        .from("reservations")
+        .update({ conso_minibar: nouveauTotal })
+        .eq("id", tache.reservation_id);
     }
   };
 

@@ -97,69 +97,84 @@ serve(async (req) => {
     const modeles = modelesBase || []
     const checklistOptions = optionsBase || []
 
-    // 5. ETAPE B : Nettoyage et Création des Tâches
+    // 5. ETAPE B : Création et Nettoyage Intelligent des Tâches
     let tachesAInserer: any[] = []
+    let idsTachesASupprimer: string[] = []
     let nouvellesTachesInserees: any[] = []
 
     if (reservationsInsereesOuMisesAJour.length > 0) {
       const resIds = reservationsInsereesOuMisesAJour.map(r => r.id)
       
-      // 5.1 Nettoyage des vieilles tâches "A FAIRE"
-      await supabase
-        .from('taches')
-        .delete()
-        .in('reservation_id', resIds)
-        .eq('statut', 'A FAIRE')
-
-      // On regarde ce qu'il reste (ex: les tâches TERMINÉ) pour ne pas créer de doublons
+      // 5.1 On lit TOUTES les tâches existantes (A FAIRE et TERMINÉ) pour voir ce qu'on a déjà
       const { data: tachesRestantes } = await supabase
         .from('taches')
-        .select('date_prevue, type_tache, reservation_id')
+        .select('id, date_prevue, type_tache, reservation_id, statut')
         .in('reservation_id', resIds)
       
       const existantes = tachesRestantes || []
 
-      // 5.2 Calcul des nouvelles Tâches
+      // 5.2 Calcul des Tâches Attendues
       for (const res of reservationsInsereesOuMisesAJour) {
-        if (res.statut !== 'Booked') continue;
+        
+        // Si la réservation n'est plus confirmée (Annulée/Refusée)
+        // on prépare la suppression de ses tâches "A FAIRE"
+        if (res.statut !== 'Booked') {
+          const aSupprimer = existantes.filter(t => t.reservation_id === res.id && t.statut === 'A FAIRE')
+          aSupprimer.forEach(t => idsTachesASupprimer.push(t.id))
+          continue;
+        }
+
         const arr = new Date(res.date_arrivee)
         const dep = new Date(res.date_depart)
 
-        const preparerTache = (dateTache: Date, type: string) => {
-          const dateStr = dateTache.toISOString().split('T')[0]
-          
-          // VERIFICATION de l'existence d'une tâche identique (même réservation, même date, même type) pour éviter les doublons
-          const dejaFaite = existantes.find(t => 
+        // On liste toutes les tâches théoriques que cette réservation DEVRAIT avoir
+        const tachesTheoriques: { dateStr: string, type: string }[] = []
+        
+        tachesTheoriques.push({ dateStr: arr.toISOString().split('T')[0], type: 'Arrivée' })
+        
+        let dInter = new Date(arr.getTime())
+        dInter.setDate(dInter.getDate() + 1)
+        while (dInter.getTime() < dep.getTime()) {
+          tachesTheoriques.push({ dateStr: dInter.toISOString().split('T')[0], type: 'Intermédiaire' })
+          dInter.setDate(dInter.getDate() + 1)
+        }
+        tachesTheoriques.push({ dateStr: dep.toISOString().split('T')[0], type: 'Départ' })
+
+        // A. On regarde s'il MANQUE des tâches (ex: nouvelle réservation)
+        for (const theorique of tachesTheoriques) {
+          const trouve = existantes.find(t => 
             t.reservation_id === res.id && 
-            t.date_prevue === dateStr && 
-            t.type_tache === type
+            t.date_prevue === theorique.dateStr && 
+            t.type_tache === theorique.type
           )
 
-          // On ne prépare l'insertion QUE si elle n'existe pas
-          if (!dejaFaite) {
+          if (!trouve) {
             tachesAInserer.push({
-              date_prevue: dateStr,
+              date_prevue: theorique.dateStr,
               chambre_id: res.chambre_id,
               reservation_id: res.id,
-              type_tache: type,
+              type_tache: theorique.type,
               commentaire: ""
             })
           }
         }
 
-        preparerTache(arr, 'Arrivée')
-        
-        let dInter = new Date(arr.getTime())
-        dInter.setDate(dInter.getDate() + 1)
-        while (dInter.getTime() < dep.getTime()) {
-          preparerTache(dInter, 'Intermédiaire')
-          dInter.setDate(dInter.getDate() + 1)
+        // B. On regarde s'il y a des tâches "A FAIRE" EN TROP (ex: le client a raccourci son séjour)
+        const tachesDeCetteResa = existantes.filter(t => t.reservation_id === res.id && t.statut === 'A FAIRE')
+        for (const t of tachesDeCetteResa) {
+          const toujoursUtile = tachesTheoriques.find(th => th.dateStr === t.date_prevue && th.type === t.type_tache)
+          if (!toujoursUtile) {
+            idsTachesASupprimer.push(t.id)
+          }
         }
-        
-        preparerTache(dep, 'Départ')
       }
 
-      // 5.3 Insertion Finale des Tâches
+      // 5.3 Suppression ciblée des tâches obsolètes (uniquement celles devenues inutiles)
+      if (idsTachesASupprimer.length > 0) {
+        await supabase.from('taches').delete().in('id', idsTachesASupprimer)
+      }
+
+      // 5.4 Insertion des Nouvelles Tâches uniquement
       if (tachesAInserer.length > 0) {
         const { data: insertedData, error: insertTachesError } = await supabase
           .from('taches')
