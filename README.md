@@ -1,73 +1,39 @@
-# React + TypeScript + Vite
+# 🏨 Le California - Système de Gestion Ménage & Admin
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Application web full-stack dédiée à la gestion du personnel d'entretien et au suivi administratif de l'hôtel **Le California**. L'application synchronise automatiquement les réservations depuis **Lodgify** et génère des plannings de ménage intelligents.
 
-Currently, two official plugins are available:
+## 🚀 Fonctionnalités
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+### 🧹 Interface Ménage (Tablette)
 
-## React Compiler
+- **Planning Quotidien** : Vue claire des Arrivées, Départs et Ménages Intermédiaires du jour.
+- **Check-list Dynamique** : Sous-tâches générées automatiquement selon le type de ménage et les options clients.
+- **Suivi Minibar** : Compteur tactile pour enregistrer les consommations en temps réel.
+- **Entretien Profond** : Gestion des tâches récurrentes (30, 90, 180 jours) groupées par chambre et par fréquence.
+- **Anticipation** : Possibilité de voir et préparer les arrivées des 15 prochains jours en avance.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### ⚙️ Panel Administration
 
-## Expanding the ESLint configuration
+- **Sécurisé** : Accès protégé par authentification Supabase Auth.
+- **Vue Calendrier** : Navigation par mois avec tri chronologique des réservations.
+- **Gestion des Options** : Activation/Désactivation d'options (ex: Petit-déjeuner) impactant directement les check-lists du ménage.
+- **Facturation** : Récapitulatif consolidé des consommations minibar par séjour.
+- **Statuts Lodgify** : Affichage visuel des statuts (Confirmé, Annulé, En attente).
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🛠 Stack Technique
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- **Frontend** : React.js (Vite + TypeScript)
+- **Style** : CSS-in-JS (Inline styles pour une portabilité maximale)
+- **Backend** : Supabase
+  - **Database** : PostgreSQL (Tables : reservations, taches, chambres, minibar...)
+  - **Edge Functions** : Script Deno pour la synchronisation API Lodgify.
+  - **Cron Jobs** : Extension `pg_cron` pour une synchronisation automatique toutes les 15 minutes.
+- **Déploiement** : Vercel
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## ⚙️ Configuration & Installation
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+1. **Cloner le projet**
+   ```bash
+   git clone [url-du-repo]
+   cd le-california
+   ```

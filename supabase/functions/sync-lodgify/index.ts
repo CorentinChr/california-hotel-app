@@ -111,7 +111,7 @@ serve(async (req) => {
         .in('reservation_id', resIds)
         .eq('statut', 'A FAIRE')
 
-      // NOUVEAU : On regarde ce qu'il reste (ex: les tâches TERMINÉ) pour ne pas créer de doublons !
+      // On regarde ce qu'il reste (ex: les tâches TERMINÉ) pour ne pas créer de doublons
       const { data: tachesRestantes } = await supabase
         .from('taches')
         .select('date_prevue, type_tache, reservation_id')
@@ -128,7 +128,7 @@ serve(async (req) => {
         const preparerTache = (dateTache: Date, type: string) => {
           const dateStr = dateTache.toISOString().split('T')[0]
           
-          // VERIFICATION : Est-ce que cette tâche existe déjà en base ?
+          // VERIFICATION de l'existence d'une tâche identique (même réservation, même date, même type) pour éviter les doublons
           const dejaFaite = existantes.find(t => 
             t.reservation_id === res.id && 
             t.date_prevue === dateStr && 
