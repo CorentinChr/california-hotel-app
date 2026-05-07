@@ -539,7 +539,15 @@ function Menage() {
                       </span>
                       {!estTermine && (
                         <button
-                          onClick={() => marquerCommeTerminee(tache.id)}
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                `Confirmer la fin du ménage "${tache.type_tache}" pour la chambre ${tache.chambres?.nom} ?`,
+                              )
+                            ) {
+                              marquerCommeTerminee(tache.id);
+                            }
+                          }}
                           style={{
                             padding: "10px 16px",
                             backgroundColor: BLEU_CALIFORNIA,
