@@ -26,6 +26,7 @@ interface Tache {
   date_prevue: string;
   type_tache: string;
   statut: string;
+  commentaire: string | null;
   reservations: { nom_client: string };
   chambres: { nom: string };
   tache_items_execution: TacheItem[];
@@ -89,7 +90,7 @@ function Menage() {
       const { data: tachesData } = await supabase
         .from("taches")
         .select(
-          `id, reservation_id, date_prevue, type_tache, statut, reservations ( nom_client ), chambres ( nom ), tache_items_execution ( id, libelle, ordre, est_fait ), minibar_consommations ( id, produit_id, quantite )`,
+          `id, reservation_id, date_prevue, type_tache, statut, commentaire, reservations ( nom_client ), chambres ( nom ), tache_items_execution ( id, libelle, ordre, est_fait ), minibar_consommations ( id, produit_id, quantite )`,
         )
         .or(
           `and(date_prevue.gte.${aujourdhui},date_prevue.lte.${dans15Jours}),and(date_prevue.gte.${ilYa10Jours},date_prevue.lt.${aujourdhui},statut.eq."A FAIRE")`,
@@ -117,6 +118,22 @@ function Menage() {
     }
     fetchData();
   }, [aujourdhui]);
+
+  // --- ACTIONS COMMENTAIRES ---
+  const modifierCommentaireLocal = (idTache: string, texte: string) => {
+    // Met à jour l'affichage pendant que l'agent tape sur le clavier
+    setTaches(
+      taches.map((t) => (t.id === idTache ? { ...t, commentaire: texte } : t)),
+    );
+  };
+
+  const sauvegarderCommentaireBDD = async (idTache: string, texte: string) => {
+    // Sauvegarde en base de données quand l'agent quitte la zone de texte
+    await supabase
+      .from("taches")
+      .update({ commentaire: texte })
+      .eq("id", idTache);
+  };
 
   // --- ACTIONS QUOTIDIENNES ---
   const marquerCommeTerminee = async (idTache: string) => {
@@ -807,6 +824,52 @@ function Menage() {
                           </div>
                         </div>
                       )}
+
+                      {/* --- ZONE DE COMMENTAIRE --- */}
+                      <div
+                        style={{
+                          marginTop: "30px",
+                          paddingTop: "20px",
+                          borderTop: "2px dashed #ccc",
+                        }}
+                      >
+                        <h4
+                          style={{
+                            margin: "0 0 16px 0",
+                            fontSize: "16px",
+                            color: BLEU_CALIFORNIA,
+                          }}
+                        >
+                          💬 Notes & Remarques :
+                        </h4>
+                        <textarea
+                          // Si la bdd contient "EMPTY", on affiche une case vide
+                          value={
+                            tache.commentaire && tache.commentaire !== "EMPTY"
+                              ? tache.commentaire
+                              : ""
+                          }
+                          onChange={(e) =>
+                            modifierCommentaireLocal(tache.id, e.target.value)
+                          }
+                          onBlur={(e) =>
+                            sauvegarderCommentaireBDD(tache.id, e.target.value)
+                          }
+                          placeholder="Objets oubliés, état de la chambre, matériel manquant... (Sauvegarde automatique à la fermeture du clavier)"
+                          style={{
+                            width: "100%",
+                            minHeight: "100px",
+                            padding: "12px",
+                            borderRadius: "8px",
+                            border: "1px solid #ccc",
+                            fontFamily: "inherit",
+                            fontSize: "15px",
+                            resize: "vertical", // Permet d'agrandir la zone si besoin
+                            boxSizing: "border-box",
+                            backgroundColor: "white",
+                          }}
+                        />
+                      </div>
 
                       {/* --- BOUTON FERMER EN BAS DE DÉTAIL --- */}
                       <button

@@ -19,6 +19,7 @@ interface TacheInfo {
   date_prevue: string;
   type_tache: string;
   statut: string;
+  commentaire: string | null;
 }
 
 interface ConsoAgregee {
@@ -232,7 +233,7 @@ function Admin() {
     setChargementDetails(true);
     const { data: tachesData } = await supabase
       .from("taches")
-      .select("id, date_prevue, type_tache, statut")
+      .select("id, date_prevue, type_tache, statut, commentaire")
       .eq("reservation_id", reservationId)
       .order("date_prevue", { ascending: true });
 
@@ -788,6 +789,93 @@ function Admin() {
                       ))}
                     </div>
                   )}
+                </div>
+              </section>
+
+              {/* CHANTIER 4 : COMMENTAIRES DU PERSONNEL */}
+              <section style={{ marginTop: "30px" }}>
+                <h3 style={{ color: "#9c27b0" }}>
+                  📝 Notes & Remarques du Personnel
+                </h3>
+                <div
+                  style={{
+                    padding: "16px",
+                    backgroundColor: "#f9f9f9",
+                    borderRadius: "8px",
+                    maxHeight: "300px", // <-- Hauteur fixe max
+                    overflowY: "auto", // <-- Barre de scroll si ça dépasse
+                    border: "1px solid #eee",
+                  }}
+                >
+                  {(() => {
+                    // On filtre pour ne garder que les tâches qui ont un vrai commentaire
+                    const commentaires = tachesResa.filter(
+                      (t) =>
+                        t.commentaire &&
+                        t.commentaire.trim() !== "" &&
+                        t.commentaire !== "EMPTY",
+                    );
+
+                    if (commentaires.length === 0) {
+                      return (
+                        <p
+                          style={{
+                            margin: 0,
+                            color: "#666",
+                            fontStyle: "italic",
+                          }}
+                        >
+                          Aucune remarque n'a été laissée pour ce séjour.
+                        </p>
+                      );
+                    }
+
+                    return (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "12px",
+                        }}
+                      >
+                        {commentaires.map((tache) => (
+                          <div
+                            key={tache.id}
+                            style={{
+                              backgroundColor: "white",
+                              padding: "16px",
+                              borderRadius: "8px",
+                              borderLeft: `4px solid ${BLEU_CALIFORNIA}`,
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                            }}
+                          >
+                            <div
+                              style={{
+                                fontSize: "13px",
+                                color: "#888",
+                                marginBottom: "8px",
+                              }}
+                            >
+                              📅{" "}
+                              <strong>{formaterDate(tache.date_prevue)}</strong>{" "}
+                              — <em>Intervention : {tache.type_tache}</em>
+                            </div>
+                            <p
+                              style={{
+                                margin: 0,
+                                color: "#333",
+                                fontSize: "15px",
+                                whiteSpace: "pre-wrap",
+                                lineHeight: "1.4",
+                              }}
+                            >
+                              {tache.commentaire}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               </section>
             </>
