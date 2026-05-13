@@ -6,6 +6,7 @@ import {
 } from "react-router-dom";
 import Menage from "./Menage";
 import Admin from "./Admin";
+import CalendarDayUse from "./CalendarDayUse";
 
 function App() {
   return (
@@ -19,6 +20,8 @@ function App() {
 
         {/* Si quelqu'un tape n'importe quoi, on le renvoie au ménage */}
         <Route path="*" element={<Navigate to="/" />} />
+
+        <Route path="/day-use" element={<CalendarDayUse />} />
       </Routes>
     </Router>
   );

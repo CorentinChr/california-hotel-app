@@ -11,7 +11,8 @@ interface Reservation {
   chambres: { nom: string };
   options_json: Record<string, any>;
   statut: string;
-  conso_minibar: number; // <-- NOUVEAU
+  conso_minibar: number;
+  est_archive: boolean;
 }
 
 interface TacheInfo {
@@ -25,7 +26,7 @@ interface TacheInfo {
 interface ConsoAgregee {
   nom: string;
   quantite: number;
-  prix: number; // <-- NOUVEAU
+  prix: number;
 }
 
 const MOIS_NOMS = [
@@ -85,13 +86,15 @@ function Admin() {
     return () => subscription.unsubscribe();
   }, []);
 
+  const [voirArchives, setVoirArchives] = useState(false);
+
   // --- CHARGEMENT DES DONNÉES ---
   useEffect(() => {
     if (estConnecte) {
       chargerReservations();
       chargerOptions();
     }
-  }, [estConnecte, moisActuel, anneeActuelle]);
+  }, [estConnecte, moisActuel, anneeActuelle, voirArchives]);
 
   useEffect(() => {
     if (reservationSelectionnee) {
@@ -209,14 +212,25 @@ function Admin() {
     ).getDate();
     const dernierJour = `${anneeActuelle}-${pad(moisActuel + 1)}-${pad(nbJoursDansMois)}`;
 
-    const { data, error } = await supabase
+    // On prépare la requête (avec ajout du champ est_archive)
+    let query = supabase
       .from("reservations")
       .select(
-        `id, nom_client, date_arrivee, date_depart, statut, options_json, conso_minibar, chambres ( nom )`, // <-- AJOUT conso_minibar
+        `id, nom_client, date_arrivee, date_depart, statut, options_json, conso_minibar, est_archive, chambres ( nom )`,
       )
       .lte("date_arrivee", dernierJour)
       .gte("date_depart", premierJour)
       .order("date_arrivee", { ascending: true });
+
+    // NOUVEAU : Application du filtre
+    if (voirArchives) {
+      query = query.eq("est_archive", true);
+    } else {
+      // On utilise "not is true" pour attraper les FALSE et les anciens NULL
+      query = query.not("est_archive", "is", true);
+    }
+
+    const { data, error } = await query;
 
     if (!error && data) {
       setReservations(data as unknown as Reservation[]);
@@ -271,6 +285,32 @@ function Admin() {
       }
     }
     setChargementDetails(false);
+  };
+
+  // --- NOUVEAU : FONCTION D'ARCHIVAGE ---
+  const archiverReservation = async (idResa: string) => {
+    if (
+      !window.confirm(
+        "Archiver ce dossier ? Toutes les tâches de ménage associées seront automatiquement marquées comme terminées.",
+      )
+    )
+      return;
+
+    // 1. On passe la réservation en archive
+    await supabase
+      .from("reservations")
+      .update({ est_archive: true })
+      .eq("id", idResa);
+
+    // 2. On valide TOUTES les tâches de cette réservation d'un coup !
+    await supabase
+      .from("taches")
+      .update({ statut: "TERMINÉ" })
+      .eq("reservation_id", idResa);
+
+    // 3. On ferme le panneau et on recharge
+    setReservationSelectionnee(null);
+    chargerReservations();
   };
 
   const toggleOption = async (optionNom: string) => {
@@ -416,6 +456,20 @@ function Admin() {
             }}
           >
             🧹 Tablette
+          </button>
+          <button
+            onClick={() => navigate("/day-use")}
+            style={{
+              backgroundColor: "#ff9800", // Orange pour bien le différencier
+              border: "none",
+              color: "white",
+              padding: "8px 16px",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontWeight: "bold",
+            }}
+          >
+            ☀️ Gérer le Day Use
           </button>
           <button
             onClick={seDeconnecter}
@@ -878,6 +932,29 @@ function Admin() {
                   })()}
                 </div>
               </section>
+
+              {/* CHANTIER 5 : BOUTON D'ARCHIVAGE */}
+              {!reservationSelectionnee.est_archive && (
+                <button
+                  onClick={() =>
+                    archiverReservation(reservationSelectionnee.id)
+                  }
+                  style={{
+                    width: "100%",
+                    marginTop: "30px",
+                    padding: "16px",
+                    backgroundColor: "#607d8b",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontWeight: "bold",
+                    fontSize: "16px",
+                  }}
+                >
+                  🗄️ Archiver ce dossier (Validera toutes les tâches)
+                </button>
+              )}
             </>
           )}
         </div>
@@ -933,6 +1010,33 @@ function Admin() {
               }}
             >
               ▶
+            </button>
+          </div>
+
+          {/* BOUTON TOGGLE ARCHIVES */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              marginBottom: "20px",
+            }}
+          >
+            <button
+              onClick={() => setVoirArchives(!voirArchives)}
+              style={{
+                padding: "10px 20px",
+                backgroundColor: voirArchives ? "#607d8b" : "transparent",
+                color: voirArchives ? "white" : "#607d8b",
+                border: "2px solid #607d8b",
+                borderRadius: "20px",
+                cursor: "pointer",
+                fontWeight: "bold",
+                transition: "0.2s",
+              }}
+            >
+              {voirArchives
+                ? "📂 Retour aux dossiers actifs"
+                : "🗄️ Voir les dossiers archivés"}
             </button>
           </div>
 
@@ -1003,16 +1107,59 @@ function Admin() {
                       {formaterDate(resa.date_depart)}
                     </span>
                   </div>
+                  {/* NOUVEAU : CONTENEUR DES BOUTONS D'ACTION (À droite de la carte) */}
                   <div
                     style={{
-                      color: estAnnulee ? "#f44336" : BLEU_CALIFORNIA,
-                      fontWeight: "bold",
-                      padding: "8px 16px",
-                      backgroundColor: estAnnulee ? "#ffebee" : "#f0f8ff",
-                      borderRadius: "6px",
+                      display: "flex",
+                      gap: "10px",
+                      alignItems: "center",
                     }}
                   >
-                    Gérer →
+                    {/* BOUTON ARCHIVER RAPIDE (Masqué si on est déjà dans les archives) */}
+                    {!resa.est_archive && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation(); // Bloque l'ouverture de la carte détaillée
+                          archiverReservation(resa.id);
+                        }}
+                        style={{
+                          backgroundColor: "white",
+                          color: "#607d8b",
+                          border: "1px solid #607d8b",
+                          padding: "8px 12px",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontWeight: "bold",
+                          fontSize: "13px",
+                          transition: "0.2s",
+                        }}
+                        onMouseOver={(e) => {
+                          e.currentTarget.style.backgroundColor = "#607d8b";
+                          e.currentTarget.style.color = "white";
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.backgroundColor = "white";
+                          e.currentTarget.style.color = "#607d8b";
+                        }}
+                      >
+                        🗄️ Archiver
+                      </button>
+                    )}
+
+                    {/* BOUTON GÉRER EXISTANT */}
+                    <div
+                      style={{
+                        color: estAnnulee ? "#f44336" : BLEU_CALIFORNIA,
+                        fontWeight: "bold",
+                        padding: "8px 16px",
+                        backgroundColor: estAnnulee ? "#ffebee" : "#f0f8ff",
+                        borderRadius: "6px",
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                    >
+                      Gérer →
+                    </div>
                   </div>
                 </div>
               );

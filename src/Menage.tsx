@@ -331,7 +331,11 @@ function Menage() {
 
     // 2. Si le bouton "Afficher prochaines" est activé, on affiche le futur...
     // MAIS on force à ne montrer QUE les "Arrivées" (impossible d'anticiper un départ/intermédiaire)
-    if (afficherProchaines && t.type_tache === "Arrivée") return true;
+    if (
+      afficherProchaines &&
+      (t.type_tache === "Arrivée" || t.type_tache === "Ménage Day Use")
+    )
+      return true;
 
     return false;
   });
